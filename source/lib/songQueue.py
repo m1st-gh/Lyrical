@@ -14,8 +14,8 @@ class SongQueue:
         return True
     
     def peek(self, index: int):
-        if index == None:
-            return self._songlist[0]
+        if index > len(self._songlist):
+            return False
         return self._songlist[index]
     
     def isEmpty(self):

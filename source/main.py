@@ -10,6 +10,7 @@ from yt_dlp import YoutubeDL
 from cogs import musicCommand as music
 from lib.config import config as tokens
 import asyncio
+import sys
 
 
 
@@ -27,10 +28,11 @@ async def on_ready():
     while True:
         current_time = datetime.datetime.now()
         uptime = current_time - start
-        presence = f"Uptime: {int(uptime.total_seconds())} seconds"
-        await Lyrical.change_presence(activity=nextcord.Activity(type=nextcord.ActivityType.listening, name=presence))
+        uptime_str = str(uptime).split(".")[0]  # Remove microseconds
+        uptime_formatted = 'Uptime: ' + uptime_str[-8:]  # Extract HH:MM:SS
+        await Lyrical.change_presence(activity=nextcord.Activity(type=nextcord.ActivityType.playing, name=uptime_formatted))
         await asyncio.sleep(1)  # Update presence every minute
-
+              
 cogs_folder = os.path.join("source", "cogs")
 for f in os.listdir(cogs_folder):
 	if f.endswith(".py"):

@@ -3,6 +3,7 @@
 #   - Auto add playlist support
 #   - Add multipul songs at once
 ###############################################
+import asyncio
 from nextcord.ext import commands, menus, tasks
 import nextcord
 import os
@@ -12,6 +13,7 @@ sys.path.append(lib)
 from lib.config import config as tokens
 from lib.songQueue import SongQueue
 
+TIME_OUT = 5 * 60
 DEFAULT_GUILD_ID = int(tokens.get_guild_id())
 
 songs = SongQueue()
@@ -20,13 +22,14 @@ musicMenuRunning = False
 
 
 @tasks.loop(seconds=1)
-async def playLoop(interaction: nextcord.Interaction, quels: SongQueue(), msg: nextcord.Message):
-    global stream
-    if not stream.is_playing():
-        quels.dequeue()
-        stream.play(nextcord.FFmpegPCMAudio(quels.front()['url']))
-        await msg.edit(embed=embed)
-        return
+async def playLoop(interaction: nextcord.Interaction, stream, songs):
+    if stream.is_playing() is False:
+        if songs.currentIndex() + 1 < songs.size():
+            songs.setCurrentSong(songs.peek(songs.currentIndex() + 1))
+            stream.stop()
+            stream.play(nextcord.FFmpegPCMAudio(songs.getCurrentSong()['url']))
+            await interaction.edit_original_message(embed=Music.createEmbed())
+            return
 
 class Music(commands.Cog):
 
@@ -43,7 +46,7 @@ class Music(commands.Cog):
         elif interaction.user.voice is None:
             return await interaction.followup.send('You are not in a voice channel', ephemeral=True, delete_after=5)
         elif stream is None:
-            stream = await interaction.user.voice.channel.connect()
+            stream = await interaction.user.voice.channel.connect(timeout=TIME_OUT)
         
         #Check if stream is running, if song is not downloaded
         if songs.push(url):
@@ -52,15 +55,15 @@ class Music(commands.Cog):
         else:
             return await interaction.followup.send('Song not found', ephemeral=True, delete_after=5)
         if stream.is_playing() is False:
-            songs.setCurrentSong(songs.peek(-1))
+            songs.setCurrentSong(songs.peek(-1)) 
             stream.play(nextcord.FFmpegPCMAudio(songs.getCurrentSong()['url']))
-            if musicMenuRunning is False:
+            if musicMenuRunning is False or playLoop.is_running() is False:
                 await Music.musicMenu().start(interaction=interaction)
-        
-
+                await playLoop.start(interaction, stream, songs)
+                
     def createEmbed():
         global songs
-        embed = nextcord.Embed(title=songs.getCurrentSong()['title'][:128], url=songs.getCurrentSong()['webpage_url'])
+        embed = nextcord.Embed(title= f'[{songs.currentIndex()}] ' + songs.getCurrentSong()['title'][:128], url=songs.getCurrentSong()['webpage_url'])
         embed.set_image(url=songs.getCurrentSong()['thumbnail'])
         return embed
 
@@ -82,9 +85,7 @@ class Music(commands.Cog):
                 stream.play(nextcord.FFmpegPCMAudio(songs.current['url']))
             elif stream.is_playing() is False or stream.timestamp <= 5:
                 stream.play(nextcord.FFmpegPCMAudio(songs.current['url']))
-                songs.setCurrentSong(songs.peek(songs.currentIndex() + 1))
-            
-                
+                songs.setCurrentSong(songs.peek(songs.currentIndex() - 1))
 
         @nextcord.ui.button(emoji='⏯️', label='Pause/Resume')
         async def pauseSong(self, button, interaction):
@@ -98,7 +99,7 @@ class Music(commands.Cog):
         async def skipSong(self, button, interaction):
             global stream, songs
             stream.stop()
-            songs.setCurrentSong(songs.peek(songs.currentIndex() - 1))
+            songs.setCurrentSong(songs.peek(songs.currentIndex() + 1))
             await self.interaction.edit_original_message(embed=Music.createEmbed(), view=self)
             stream.play(nextcord.FFmpegPCMAudio(songs.getCurrentSong()['url']))
                
@@ -107,9 +108,9 @@ class Music(commands.Cog):
             global stream, songs, musicMenuRunning
             stream.stop()
             await stream.disconnect(force=True)
+            await interaction.delete_original_message()
             musicMenuRunning = False
             self.stop()
-
 
 def setup(bot):
     bot.add_cog(Music(bot))
