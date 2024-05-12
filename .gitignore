@@ -1,0 +1,11 @@
+/out
+/obj
+/logs
+/concord
+/CogLink
+application.yml
+bot.log
+config.json
+lyrical
+http.log
+Lavalink.jar
