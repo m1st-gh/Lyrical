@@ -7,13 +7,14 @@
 #include <concord/discord_codecs.h>
 #include <concord/interaction.h>
 #include <concord/types.h>
+#include <concord/user.h>
 #include <stdlib.h>
 #include <string.h>
 
 void play_song(struct discord *client, const struct discord_interaction *event,
-               struct coglink_client *c_client, u64snowflake GUILD_ID) {
+               struct coglink_client *c_client) {
 
-  struct coglink_player *player = coglink_get_player(c_client, GUILD_ID);
+  struct coglink_player *player = coglink_create_player(c_client, event->guild_id);
 
   if (!player) {
     struct discord_embed embed = {
@@ -38,6 +39,8 @@ void play_song(struct discord *client, const struct discord_interaction *event,
   }
   char *songName = event->data->options->array->value;
   CURL *curl = curl_easy_init();
+  struct coglink_user *user = coglink_get_user(c_client, event->member->user->id);
+  coglink_join_voice_channel(c_client, client, event->guild_id, user->channel_id);
 
   if (!curl) {
     struct discord_embed embed = {

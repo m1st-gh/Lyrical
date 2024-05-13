@@ -6,7 +6,7 @@ CFLAGS = -Wall -Wextra -g -lcoglink -ldiscord -lcurl -pthread
 all: lyrical
 
 lyrical: src/main.c src/music.c src/lyrical.h
-	$(CC) src/main.c src/music.c -o lyrical $(CFLAGS)
+	$(CC) src/main.c src/music.c -o Lyrical $(CFLAGS)
 
 clean:
 	rm -f lyrical

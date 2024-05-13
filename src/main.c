@@ -87,7 +87,7 @@ void on_interaction(struct discord *client,
                     const struct discord_interaction *event) {
 
   if (strcmp(event->data->name, "play") == 0) {
-    play_song(client, event, c_client, GUILD_ID);
+    play_song(client, event, c_client);
   }
   if (strcmp(event->data->name, "stop") == 0) {
   }
@@ -113,7 +113,7 @@ int main() {
                                                .on_stats = &lyrical_stats};
   coglink_connect_nodes(c_client, client, &nodes);
   discord_add_intents(client, DISCORD_GATEWAY_GUILD_VOICE_STATES);
-  // discord_add_intents(client, DISCORD_GATEWAY_MESSAGE_CONTENT);
+  discord_add_intents(client, DISCORD_GATEWAY_MESSAGE_CONTENT);
   discord_add_intents(client, DISCORD_GATEWAY_GUILDS);
   discord_set_on_ready(client, &on_ready);
   discord_set_on_interaction_create(client, &on_interaction);

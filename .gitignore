@@ -1,11 +1,9 @@
-/out
-/obj
-/logs
-/concord
-/CogLink
-application.yml
+out/
+obj/
+logs/
+LavaLink/
+lyrical
 bot.log
 config.json
-lyrical
 http.log
 Lavalink.jar
