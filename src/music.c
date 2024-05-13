@@ -1,6 +1,8 @@
 #include "lyrical.h"
 #include <asm-generic/errno.h>
+#include <coglink/codecs.h>
 #include <coglink/rest.h>
+#include <coglink/types.h>
 #include <concord/channel.h>
 #include <concord/discord-events.h>
 #include <concord/discord.h>
@@ -14,7 +16,8 @@
 void play_song(struct discord *client, const struct discord_interaction *event,
                struct coglink_client *c_client) {
 
-  struct coglink_player *player = coglink_create_player(c_client, event->guild_id);
+  struct coglink_player *player =
+      coglink_create_player(c_client, event->guild_id);
 
   if (!player) {
     struct discord_embed embed = {
@@ -39,8 +42,10 @@ void play_song(struct discord *client, const struct discord_interaction *event,
   }
   char *songName = event->data->options->array->value;
   CURL *curl = curl_easy_init();
-  struct coglink_user *user = coglink_get_user(c_client, event->member->user->id);
-  coglink_join_voice_channel(c_client, client, event->guild_id, user->channel_id);
+  struct coglink_user *user =
+      coglink_get_user(c_client, event->member->user->id);
+  coglink_join_voice_channel(c_client, client, event->guild_id,
+                             user->channel_id);
 
   if (!curl) {
     struct discord_embed embed = {
@@ -63,7 +68,6 @@ void play_song(struct discord *client, const struct discord_interaction *event,
                                         &params, NULL);
     return;
   }
-
   char *search = curl_easy_escape(curl, songName, strlen(songName));
 
   if (!search) {
@@ -160,14 +164,12 @@ void play_song(struct discord *client, const struct discord_interaction *event,
     struct coglink_load_tracks_track *track_response = response.data;
 
     char title[4000 + 1];
-    char author[512 + 1];
     struct coglink_player_queue *queue =
         coglink_get_player_queue(c_client, player);
 
     if (queue->size == 0) {
-      snprintf(title, sizeof(title), "Playing `%s`",
-               track_response->info->title);
-      snprintf(author, sizeof(author), "by `%s`", track_response->info->author);
+      snprintf(title, sizeof(title), "`Playing %s By: %s.`",
+               track_response->info->title, track_response->info->author);
       struct coglink_update_player_params params = {
           .track =
               &(struct coglink_update_player_track_params){
@@ -176,19 +178,16 @@ void play_song(struct discord *client, const struct discord_interaction *event,
       };
       coglink_update_player(c_client, player, &params, NULL);
     } else {
-      snprintf(title, sizeof(title), "Queued `%s`",
-               track_response->info->title);
-      snprintf(author, sizeof(author), "By: `%s`",
-               track_response->info->author);
+      snprintf(title, sizeof(title), "`Playing %s By: %s.`",
+               track_response->info->title, track_response->info->author);
     }
     struct discord_embed embed = {
         .timestamp = discord_timestamp(client),
     };
     discord_embed_set_title(&embed, title);
-    discord_embed_set_description(&embed, author);
-    discord_embed_set_thumbnail(&embed, track_response->info->artworkUrl, NULL,
-                                0, 0);
-    discord_embed_set_footer(&embed, track_response->info->uri, NULL, NULL);
+    discord_embed_set_description(&embed, track_response->info->uri);
+    discord_embed_set_image(&embed, track_response->info->artworkUrl, NULL, 0,
+                            0);
     struct discord_interaction_response params = {
         .type = DISCORD_INTERACTION_CHANNEL_MESSAGE_WITH_SOURCE,
         .data =
@@ -217,7 +216,7 @@ void play_song(struct discord *client, const struct discord_interaction *event,
     if (queue->size == 0) {
       snprintf(title, sizeof(title),
                "Playing a playlist with %" PRIu64
-               " tracks. Playing firstly `%s` by `%s`",
+               " tracks. `Now Playing %s by: %s`",
                data->tracks->size, data->tracks->array[0]->info->title,
                data->tracks->array[0]->info->author);
 
@@ -230,13 +229,12 @@ void play_song(struct discord *client, const struct discord_interaction *event,
 
       coglink_update_player(c_client, player, &params, NULL);
     } else {
-      snprintf(title, sizeof(title),
-               "Adding the playlist with %" PRIu64 " tracks to the queue",
+      snprintf(title, sizeof(title), "Queued %" PRIu64 " tracks to the queue",
                data->tracks->size);
     }
 
     struct discord_embed embed = {
-      .timestamp = discord_timestamp(client),
+        .timestamp = discord_timestamp(client),
     };
 
     discord_embed_set_title(&embed, title);
@@ -265,15 +263,13 @@ void play_song(struct discord *client, const struct discord_interaction *event,
     struct coglink_load_tracks_search *search_response = response.data;
 
     char title[4000 + 1];
-    char author[512 + 1];
     struct coglink_player_queue *queue =
         coglink_get_player_queue(c_client, player);
 
     if (queue->size == 0) {
-      snprintf(title, sizeof(title), "Playing `%s`",
+      snprintf(title, sizeof(title), "`Playing %s By: %s.`",
+               search_response->array[0]->info->title,
                search_response->array[0]->info->title);
-      snprintf(author, sizeof(author), "by `%s`", search_response->array[0]->info->author);
-
       struct coglink_update_player_params params = {
           .track =
               &(struct coglink_update_player_track_params){
@@ -283,9 +279,9 @@ void play_song(struct discord *client, const struct discord_interaction *event,
 
       coglink_update_player(c_client, player, &params, NULL);
     } else {
-      snprintf(title, sizeof(title), "Added %s to the queue.",
+      snprintf(title, sizeof(title), "`Added %s By: %s to the queue.`",
+               search_response->array[0]->info->title,
                search_response->array[0]->info->title);
-      snprintf(author, sizeof(author), "by `%s`", search_response->array[0]->info->author);
     }
 
     struct discord_embed embed = {
@@ -293,7 +289,9 @@ void play_song(struct discord *client, const struct discord_interaction *event,
     };
 
     discord_embed_set_title(&embed, title);
-    discord_embed_set_description(&embed, author);
+    discord_embed_set_description(&embed, search_response->array[0]->info->uri);
+    discord_embed_set_image(&embed, search_response->array[0]->info->artworkUrl,
+                            NULL, 0, 0);
     struct discord_interaction_response params = {
         .type = DISCORD_INTERACTION_CHANNEL_MESSAGE_WITH_SOURCE,
         .data =
@@ -341,7 +339,7 @@ void play_song(struct discord *client, const struct discord_interaction *event,
     snprintf(title, sizeof(title), "Failed to load. %s", data->message);
 
     struct discord_embed embed = {
-      .timestamp = discord_timestamp(client),
+        .timestamp = discord_timestamp(client),
     };
     discord_embed_set_title(&embed, title);
 
@@ -363,4 +361,93 @@ void play_song(struct discord *client, const struct discord_interaction *event,
   }
   }
   coglink_free_load_tracks(&response);
+}
+void skip_song(struct discord *client, const struct discord_interaction *event,
+               struct coglink_client *c_client) {
+  struct coglink_player *player =
+      coglink_create_player(c_client, event->guild_id);
+
+  if (!player) {
+    struct discord_embed embed = {
+        .timestamp = discord_timestamp(client),
+    };
+    discord_embed_set_title(&embed, "Failed to get the node.");
+
+    struct discord_interaction_response params = {
+        .type = DISCORD_INTERACTION_CHANNEL_MESSAGE_WITH_SOURCE,
+        .data =
+            &(struct discord_interaction_callback_data){
+                .embeds =
+                    &(struct discord_embeds){
+                        .size = 1,
+                        .array = &embed,
+                    },
+            },
+    };
+    discord_create_interaction_response(client, event->id, event->token,
+                                        &params, NULL);
+    return;
+  }
+  char description[4000 + 1];
+
+  struct coglink_update_player response = {0};
+  struct coglink_player_queue *queue =
+      coglink_get_player_queue(c_client, player);
+  if (queue->size == 1) {
+    struct coglink_update_player_params params = {.track = NULL,
+                                                  .paused = true};
+    coglink_remove_track_from_queue(c_client, player, 0);
+    coglink_update_player(c_client, player, &params, NULL);
+    log_info("SKIPED EMPTY");
+    struct discord_embed embed = {.timestamp = discord_timestamp(client)};
+    discord_embed_set_title(&embed, "Empty Queue");
+    struct discord_interaction_response embed_params = {
+        .type = DISCORD_INTERACTION_CHANNEL_MESSAGE_WITH_SOURCE,
+        .data =
+            &(struct discord_interaction_callback_data){
+                .embeds =
+                    &(struct discord_embeds){
+                        .size = 1,
+                        .array = &embed,
+                    },
+            },
+    };
+    discord_create_interaction_response(client, event->id, event->token,
+                                        &embed_params, NULL);
+    discord_embed_cleanup(&embed);
+
+    return;
+  } else {
+    char *track = queue->array[1];
+    struct coglink_update_player_params embed_params = {
+        .track =
+            &(struct coglink_update_player_track_params){
+                .encoded = track,
+            },
+    };
+
+    coglink_update_player(c_client, player, &embed_params, &response);
+    coglink_remove_track_from_queue(c_client, player, 0);
+  }
+
+  struct discord_embed embed = {.timestamp = discord_timestamp(client)};
+  struct discord_interaction_response params = {
+      .type = DISCORD_INTERACTION_CHANNEL_MESSAGE_WITH_SOURCE,
+      .data =
+          &(struct discord_interaction_callback_data){
+              .embeds =
+                  &(struct discord_embeds){
+                      .size = 1,
+                      .array = &embed,
+                  },
+          },
+  };
+  snprintf(description, sizeof(description), "`Playing %s By: %s`",
+           response.track->info->title, response.track->info->author);
+  discord_embed_set_title(&embed, description);
+  discord_embed_set_description(&embed, response.track->info->uri);
+  discord_embed_set_image(&embed, response.track->info->artworkUrl, NULL, 0, 0);
+  discord_create_interaction_response(client, event->id, event->token, &params,
+                                      NULL);
+  discord_embed_cleanup(&embed);
 }

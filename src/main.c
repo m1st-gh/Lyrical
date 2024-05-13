@@ -53,7 +53,7 @@ void on_ready(struct discord *client, const struct discord_ready *event) {
       .description = "The song to play",
       .required = true,
   }};
-  struct discord_create_guild_application_command params = {
+  struct discord_create_guild_application_command play = {
       .name = "play",
       .description = "Plays the given link",
       .options =
@@ -61,8 +61,14 @@ void on_ready(struct discord *client, const struct discord_ready *event) {
               .array = song_options,
               .size = sizeof(song_options) / sizeof(*song_options)},
   };
-  discord_create_guild_application_command(client, APP_ID, GUILD_ID, &params,
+  struct discord_create_guild_application_command skip = {
+      .name = "skip",
+      .description = "Skips the current song.",
+  };
+  discord_create_guild_application_command(client, APP_ID, GUILD_ID, &play,
                                            NULL);
+   discord_create_guild_application_command(client, APP_ID, GUILD_ID, &skip,
+                                           NULL);                                         
 }
 
 void get_config_feilds(struct discord *client, char *field, char *subfield,
@@ -89,7 +95,8 @@ void on_interaction(struct discord *client,
   if (strcmp(event->data->name, "play") == 0) {
     play_song(client, event, c_client);
   }
-  if (strcmp(event->data->name, "stop") == 0) {
+  if (strcmp(event->data->name, "skip") == 0) {
+    skip_song(client, event, c_client);
   }
 }
 

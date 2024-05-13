@@ -13,6 +13,7 @@ struct discord *init_bot();
 void on_interaction_create(struct discord *client, const struct discord_interaction *event);
 void on_ready(struct discord *client, const struct discord_ready *event);
 void play_song(struct discord *client, const struct discord_interaction *event, struct coglink_client *c_client);
+void skip_song(struct discord *client, const struct discord_interaction *event, struct coglink_client *c_client);
 void lyrical_stats(struct coglink_client *client, struct coglink_node *node, struct coglink_stats *stats);
 void lyrical_ready(struct coglink_client *client, struct coglink_node *node, struct coglink_ready *ready);
 #endif
