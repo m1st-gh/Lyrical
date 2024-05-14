@@ -5,8 +5,8 @@ screen -dmS Lyrical
 screen -dmS NodeLink
 
 # Send the 'cd' command to the screen session
-screen -S Lyrical -X stuff 'cd /home/m1st/Lyrical/out\n'
-screen -S NodeLink -X stuff 'cd /home/m1st/NodeLink\n'
+screen -S Lyrical -X stuff 'cd ~/Lyrical/out\n'
+screen -S NodeLink -X stuff 'cd ~/NodeLink\n'
 
 # Send the 'lyrical' command to the screen session
 screen -S NodeLink -X stuff 'nvm use 20.13.1\n'
