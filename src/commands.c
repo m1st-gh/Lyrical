@@ -17,7 +17,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <time.h>
 
 void play_song(struct discord *client, const struct discord_interaction *event, struct coglink_client *c_client) {
 
