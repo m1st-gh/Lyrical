@@ -18,6 +18,7 @@ u64snowflake APP_ID;
 char NODE_PASS[33];
 char NODE_IP[16];
 char NODE_PORT[6];
+char BOT_ID[65];
 
 void lyrical_ready(struct coglink_client *client, struct coglink_node *node, struct coglink_ready *ready) {
     (void)client;
@@ -77,6 +78,7 @@ struct discord *init_bot() {
     get_config_feilds(client, "server", "node_ip", NODE_IP);
     get_config_feilds(client, "server", "node_pass", NODE_PASS);
     get_config_feilds(client, "server", "node_port", NODE_PORT);
+    get_config_feilds(client, "server", "bot_id", BOT_ID);
     return client;
 }
 
@@ -93,7 +95,7 @@ void on_interaction(struct discord *client, const struct discord_interaction *ev
 int main() {
     struct discord *client = init_bot();
     c_client = malloc(sizeof(struct coglink_client));
-    c_client->bot_id = 1186478232875311265;
+    c_client->bot_id = atoi(BOT_ID);
     c_client->num_shards = "1";
     struct coglink_nodes nodes = {
         .array =

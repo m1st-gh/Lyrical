@@ -3,10 +3,11 @@ obj/
 logs/
 lyrical
 bot.log
-config.json
+../config.json
 http.log
 Lyrical
 .vscode/launch.json
 .clang-format
 Lyrical.code-workspace
 */*.sh
+config.json

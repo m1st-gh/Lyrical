@@ -1,0 +1,28 @@
+{
+  "logging": { 
+    "level": "trace",        
+    "filename": "bot.log",   
+    "quiet": false,          
+    "overwrite": true,       
+    "use_color": true,       
+    "http": {
+      "enable": true,        
+      "filename": "http.log" 
+    },
+    "disable_modules": ["WEBSOCKETS", "USER_AGENT"] 
+  },
+  "discord": { 
+    "token": "",         
+    "default_prefix": {                 
+      "enable": false,                 
+      "prefix": "" 
+    }
+  },
+  "server": {
+      "guild_id": "",
+      "node_pass": "",
+      "node_ip": "127.0.0.1",
+      "node_port": "2333",
+      "bot_id": ""
+  }
+}
