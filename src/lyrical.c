@@ -70,7 +70,7 @@ void get_config_feilds(struct discord *client, char *field, char *subfield, char
 }
 
 struct discord *init_bot() {
-    struct discord *client = discord_config_init("config.json");
+    struct discord *client = discord_config_init("../config.json");
     char Temp[64];
     get_config_feilds(client, "server", "guild_id", Temp);
     GUILD_ID = strtoul(Temp, NULL, 10);

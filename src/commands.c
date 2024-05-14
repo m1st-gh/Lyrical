@@ -444,9 +444,7 @@ void skip_song(struct discord *client, const struct discord_interaction *event, 
         return;
     }
     printf("Queue Size P: %zu\n", queue->size);
-    coglink_update_player(c_client, player, &(struct coglink_update_player_params){
-        .track = &(struct coglink_update_player_track_params){
-            .encoded = queue->array[1]}}, NULL);
+    coglink_update_player(c_client, player, &(struct coglink_update_player_params){.track = &(struct coglink_update_player_track_params){.encoded = queue->array[1]}}, NULL);
     coglink_remove_track_from_queue(c_client, player, 0);
     printf("Queue Size A: %zu\n", queue->size);
 }
