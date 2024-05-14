@@ -7,6 +7,14 @@ A brief description of your project.
 - [Installation](#installation)
 - [Usage](#usage)
 
+## Dependencies
+To use this project, you will need to install the following dependencies:
+
+- [CogLink](https://github.com/PerformanC/CogLink)
+- [Concord](https://github.com/Cogmasters/Concord)
+
+Follow the installation instructions provided in the CogLink repository to install the dependency.
+
 ## Installation
 
 To install and use this project, follow these steps:
