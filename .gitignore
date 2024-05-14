@@ -8,3 +8,6 @@ config.json
 http.log
 Lavalink.jar
 Lyrical
+.vscode/launch.json
+.clang-format
+Lyrical.code-workspace
