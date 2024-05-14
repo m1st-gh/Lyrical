@@ -240,7 +240,7 @@ void play_song(struct discord *client, const struct discord_interaction *event, 
             struct coglink_update_player_params params = {
                 .track =
                     &(struct coglink_update_player_track_params){
-                        .encoded = data->tracks->array[0]->encoded,
+                        .encoded = data->tracks->array[queue->size]->encoded,
                     },
             };
 
@@ -402,7 +402,7 @@ void skip_song(struct discord *client, const struct discord_interaction *event, 
     struct coglink_player_queue *queue = coglink_get_player_queue(c_client, player);
 
     if (queue->size == 0) {
-        printf("before size: %zu\n", queue->size);
+        printf("Queue Size: %zu\n", queue->size);
         struct discord_embed embed = {
             .timestamp = discord_timestamp(client),
         };
@@ -443,14 +443,10 @@ void skip_song(struct discord *client, const struct discord_interaction *event, 
         discord_create_interaction_response(client, event->id, event->token, &params, NULL);
         return;
     }
-    /*struct coglink_update_player_params track_update = {
+    printf("Queue Size P: %zu\n", queue->size);
+    coglink_update_player(c_client, player, &(struct coglink_update_player_params){
         .track = &(struct coglink_update_player_track_params){
-            .encoded = queue->array[0]},
-    };*/
-    printf("before size: %zu\n", queue->size);
-    coglink_update_player(c_client, player, &(struct coglink_update_player_params){.track = &(struct coglink_update_player_track_params){.encoded = queue->array[1]}}, NULL);
+            .encoded = queue->array[1]}}, NULL);
     coglink_remove_track_from_queue(c_client, player, 0);
-    
-
-    printf("after size: %zu\n", queue->size);
+    printf("Queue Size A: %zu\n", queue->size);
 }
