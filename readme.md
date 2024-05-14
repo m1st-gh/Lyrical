@@ -4,8 +4,11 @@ A brief description of your project.
 
 ## Table of Contents
 
+- [Dependencies](#dependencies)
 - [Installation](#installation)
 - [Usage](#usage)
+- [License](#license)
+
 
 ## Dependencies
 To use this project, you will need to install the following dependencies:
@@ -52,3 +55,6 @@ To use this project, follow these steps:
     ```bash
     $ ./out/Lyrical
     ```
+## License
+
+This project is licensed under the MIT License. See the [LICENSE](LICENSE) file for details.
