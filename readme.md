@@ -1,6 +1,6 @@
 # Lyrical
 
-A brief description of your project.
+Lyrical is a WIP music bot, that hopefully will be all incompassing in the future. For the Node use either LavaLink or (prefered) NodeLink
 
 ## Table of Contents
 
@@ -8,7 +8,6 @@ A brief description of your project.
 - [Installation](#installation)
 - [Usage](#usage)
 - [License](#license)
-
 
 ## Dependencies
 To use this project, you will need to install the following dependencies:
