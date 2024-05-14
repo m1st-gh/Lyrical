@@ -9,3 +9,4 @@ Lyrical
 .vscode/launch.json
 .clang-format
 Lyrical.code-workspace
+startup.sh
