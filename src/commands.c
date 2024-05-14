@@ -197,15 +197,10 @@ void play_song(struct discord *client, const struct discord_interaction *event, 
         }
         snprintf(author, sizeof(author), "By: %s", track_response->info->author);
         discord_embed_set_footer(&embed, author,
-                                 "https://cdn.discordapp.com/avatars/1186478232875311265/"
-                                 "90c3d15ae122604a197e34af31628449?size=1024",
+                                 "https://cdn.discordapp.com/avatars/1186478232875311265/90c3d15ae122604a197e34af31628449?size=1024",
                                  NULL);
         discord_embed_set_description(&embed, description);
         discord_embed_set_image(&embed, track_response->info->artworkUrl, NULL, 0, 0);
-        discord_embed_set_footer(&embed, track_response->info->author,
-                                 "https://cdn.discordapp.com/avatars/1186478232875311265/"
-                                 "90c3d15ae122604a197e34af31628449?size=1024",
-                                 NULL);
         struct discord_interaction_response params = {
             .type = DISCORD_INTERACTION_CHANNEL_MESSAGE_WITH_SOURCE,
             .data =
@@ -256,8 +251,7 @@ void play_song(struct discord *client, const struct discord_interaction *event, 
         discord_embed_set_description(&embed, description);
         discord_embed_set_image(&embed, data->tracks->array[0]->info->artworkUrl, NULL, 0, 0);
         discord_embed_set_footer(&embed, author,
-                                 "https://cdn.discordapp.com/avatars/1186478232875311265/"
-                                 "90c3d15ae122604a197e34af31628449?size=1024",
+                                 "https://cdn.discordapp.com/avatars/1186478232875311265/90c3d15ae122604a197e34af31628449?size=1024",
                                  NULL);
         struct discord_interaction_response params = {
             .type = DISCORD_INTERACTION_CHANNEL_MESSAGE_WITH_SOURCE,
@@ -303,8 +297,7 @@ void play_song(struct discord *client, const struct discord_interaction *event, 
         }
         snprintf(author, sizeof(author), "By: %s", search_response->array[0]->info->author);
         discord_embed_set_footer(&embed, author,
-                                 "https://cdn.discordapp.com/avatars/1186478232875311265/"
-                                 "90c3d15ae122604a197e34af31628449?size=1024",
+                                 "https://cdn.discordapp.com/avatars/1186478232875311265/90c3d15ae122604a197e34af31628449?size=1024",
                                  NULL);
         discord_embed_set_description(&embed, description);
         discord_embed_set_image(&embed, search_response->array[0]->info->artworkUrl, NULL, 0, 0);
