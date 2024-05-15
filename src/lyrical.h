@@ -96,6 +96,15 @@ void rejoin(struct discord *client, const struct discord_interaction *event, str
 void get_queue (struct discord *client, const struct discord_interaction *event, struct coglink_client *c_client);
 
 /**
+ * Handles the queue event.
+ * 
+ * @param client The discord client.
+ * @param event The interaction event.
+ * @param c_client The coglink client.
+ */
+void pop_queue(struct discord *client, const struct discord_interaction *event, struct coglink_client *c_client);
+
+/**
  * Handles the lyrical stats event.
  * 
  * @param client The coglink client.

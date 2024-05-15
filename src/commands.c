@@ -437,8 +437,10 @@ void skip_song(struct discord *client, const struct discord_interaction *event, 
         return;
     }
     if (queue->size == 1) {
+        coglink_remove_player(c_client, player);
+        coglink_leave_voice_channel(c_client, client, event->guild_id);
         struct discord_embed embed = {
-            .title = "Only one track in the queue...",
+            .title = "Skipped...",
             .footer = &(struct discord_embed_footer){
                 .icon_url = "https://cdn.discordapp.com/avatars/1186478232875311265/90c3d15ae122604a197e34af31628449?size=1024",
             },
@@ -682,6 +684,149 @@ void rejoin(struct discord *client, const struct discord_interaction *event, str
     struct discord_embed embed = {
         .timestamp = discord_timestamp(client),
         .title = "Rejoined...",
+    };
+    struct discord_interaction_response params = {
+        .type = DISCORD_INTERACTION_CHANNEL_MESSAGE_WITH_SOURCE,
+        .data =
+            &(struct discord_interaction_callback_data){
+                .embeds =
+                    &(struct discord_embeds){
+                        .size = 1,
+                        .array = &embed,
+                    },
+            },
+    };
+    discord_create_interaction_response(client, event->id, event->token, &params, NULL);
+    return;
+}
+void get_queue(struct discord *client, const struct discord_interaction *event, struct coglink_client *c_client) {
+
+    struct coglink_player *player = coglink_create_player(c_client, event->guild_id);
+    if (!player) {
+        struct discord_embed embed = {
+            .timestamp = discord_timestamp(client),
+            .title = "Failed to get the node...",
+        };
+        struct discord_interaction_response params = {
+            .type = DISCORD_INTERACTION_CHANNEL_MESSAGE_WITH_SOURCE,
+            .data =
+                &(struct discord_interaction_callback_data){
+                    .embeds =
+                        &(struct discord_embeds){
+                            .size = 1,
+                            .array = &embed,
+                        },
+                },
+        };
+        discord_create_interaction_response(client, event->id, event->token, &params, NULL);
+        return;
+    }
+
+    struct coglink_player_queue *queue = coglink_get_player_queue(c_client, player);
+
+    if (queue->size == 0) {
+        struct discord_embed embed = {
+            .timestamp = discord_timestamp(client),
+            .title = "The queue is empty...",
+        };
+        struct discord_interaction_response params = {
+            .type = DISCORD_INTERACTION_CHANNEL_MESSAGE_WITH_SOURCE,
+            .data =
+                &(struct discord_interaction_callback_data){
+                    .embeds =
+                        &(struct discord_embeds){
+                            .size = 1,
+                            .array = &embed,
+                        },
+                },
+        };
+        discord_create_interaction_response(client, event->id, event->token, &params, NULL);
+        return;
+    }
+
+    struct coglink_decode_tracks_params decode_params = {
+        .array = queue->array,
+        .size = queue->size,
+    };
+    char *description = calloc(queue->size, 128 + 1);
+    size_t description_size = queue->size * (128 + 1);
+    
+    struct coglink_node *node = coglink_get_player_node(c_client, player);
+    struct coglink_tracks tracks = {0};
+    coglink_decode_tracks(c_client, node, &decode_params, &tracks);
+
+    for (size_t i = 0; i < queue->size; i++) {
+        snprintf(description + strlen(description), description_size - strlen(description), "%zu. `%.*s`\n", i + 1, 100, tracks.array[i]->info->title);
+    }
+    printf("%s\n", description);
+    struct discord_embed embed = {
+        .timestamp = discord_timestamp(client),
+        .title = "Current queue",
+        .description = description,
+    };
+    struct discord_interaction_response params = {
+        .type = DISCORD_INTERACTION_CHANNEL_MESSAGE_WITH_SOURCE,
+        .data =
+            &(struct discord_interaction_callback_data){
+                .embeds =
+                    &(struct discord_embeds){
+                        .size = 1,
+                        .array = &embed,
+                    },
+            },
+    };
+    discord_create_interaction_response(client, event->id, event->token, &params, NULL);
+    free(description);
+    return;
+}
+void pop_queue(struct discord *client, const struct discord_interaction *event, struct coglink_client *c_client) {
+    struct coglink_player *player = coglink_create_player(c_client, event->guild_id);
+    if (!player) {
+        struct discord_embed embed = {
+            .timestamp = discord_timestamp(client),
+            .title = "Failed to get the node...",
+        };
+        struct discord_interaction_response params = {
+            .type = DISCORD_INTERACTION_CHANNEL_MESSAGE_WITH_SOURCE,
+            .data =
+                &(struct discord_interaction_callback_data){
+                    .embeds =
+                        &(struct discord_embeds){
+                            .size = 1,
+                            .array = &embed,
+                        },
+                },
+        };
+        discord_create_interaction_response(client, event->id, event->token, &params, NULL);
+        return;
+    }
+    struct coglink_player_queue *queue = coglink_get_player_queue(c_client, player);
+    size_t position = (strtoul(event->data->options->array->value, NULL, 10) - 1);
+    
+    printf("\n%zu\n", position);
+    if (position >= queue->size || position < 0){
+        struct discord_embed embed = {
+            .timestamp = discord_timestamp(client),
+            .title = "Invalid position...",
+        };
+        struct discord_interaction_response params = {
+            .type = DISCORD_INTERACTION_CHANNEL_MESSAGE_WITH_SOURCE,
+            .data =
+                &(struct discord_interaction_callback_data){
+                    .embeds =
+                        &(struct discord_embeds){
+                            .size = 1,
+                            .array = &embed,
+                        },
+                },
+        };
+        discord_create_interaction_response(client, event->id, event->token, &params, NULL);
+        return;
+    }
+    coglink_remove_track_from_queue(c_client, player, position);
+    struct discord_embed embed = {
+        .timestamp = discord_timestamp(client),
+        .title = "Removed from queue...",
     };
     struct discord_interaction_response params = {
         .type = DISCORD_INTERACTION_CHANNEL_MESSAGE_WITH_SOURCE,

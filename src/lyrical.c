@@ -46,10 +46,18 @@ void lyrical_stats(struct coglink_client *client, struct coglink_node *node, str
 void on_ready(struct discord *client, const struct discord_ready *event) {
     log_info("Lyrical succesfully connected to Discord as %s#%s!", event->user->username, event->user->discriminator);
     APP_ID = event->application->id;
+
+    /*create as union of gloabal commands*/
     struct discord_application_command_option song_options[] = {{
         .type = DISCORD_APPLICATION_OPTION_STRING,
         .name = "track",
         .description = "The track to play. Can be a URL, search query, or playlist URL.",
+        .required = true,
+    }};
+    struct discord_application_command_option position_options[] = {{
+        .type = DISCORD_APPLICATION_OPTION_INTEGER,
+        .name = "position",
+        .description = "The position in the queue to skip to.",
         .required = true,
     }};
     struct discord_create_guild_application_command play = {
@@ -70,10 +78,25 @@ void on_ready(struct discord *client, const struct discord_ready *event) {
         .name = "pp",
         .description = "Play or pauses the current track.",
     };
+    struct discord_create_guild_application_command get_queue = {
+        .name = "queue",
+        .description = "Retrieves the current queue.",
+    };
+    struct discord_create_guild_application_command pop_queue = {
+        .name = "pop",
+        .description = "Pops the given track number, use /queue to find track numbers.",
+        .options = &(struct discord_application_command_options){.array = position_options,
+                                                                 .size = sizeof(position_options) / sizeof(*position_options)},
+    };
+
+    
     discord_create_guild_application_command(client, APP_ID, GUILD_ID, &play, NULL);
     discord_create_guild_application_command(client, APP_ID, GUILD_ID, &skip, NULL);
     discord_create_guild_application_command(client, APP_ID, GUILD_ID, &stop, NULL);
     discord_create_guild_application_command(client, APP_ID, GUILD_ID, &pp, NULL);
+    discord_create_guild_application_command(client, APP_ID, GUILD_ID, &get_queue, NULL);
+    discord_create_guild_application_command(client, APP_ID, GUILD_ID, &pop_queue, NULL);
+    
 }
 
 void get_config_feilds(struct discord *client, char *field, char *subfield, char *dest) {
@@ -110,6 +133,12 @@ void on_interaction(struct discord *client, const struct discord_interaction *ev
     }
     if (strcmp(event->data->name, "rejoin") == 0) {
         rejoin(client, event, c_client);
+    }
+    if (strcmp(event->data->name, "queue") == 0) {
+        get_queue(client, event, c_client);
+    }
+     if (strcmp(event->data->name, "pop") == 0) {
+        pop_queue(client, event, c_client);
     }
 }
 
