@@ -11,3 +11,4 @@ Lyrical
 Lyrical.code-workspace
 */*.sh
 config.json
+startup.sh

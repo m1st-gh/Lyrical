@@ -18,6 +18,8 @@
 #include <stdlib.h>
 #include <string.h>
 
+bool is_paused = false;
+
 void play_song(struct discord *client, const struct discord_interaction *event, struct coglink_client *c_client) {
 
     char *songName = event->data->options->array->value;
@@ -25,9 +27,8 @@ void play_song(struct discord *client, const struct discord_interaction *event, 
     if (!player) {
         struct discord_embed embed = {
             .timestamp = discord_timestamp(client),
+            .title = "Failed to get the node.",
         };
-        discord_embed_set_title(&embed, "Failed to get the node.");
-
         struct discord_interaction_response params = {
             .type = DISCORD_INTERACTION_CHANNEL_MESSAGE_WITH_SOURCE,
             .data =
@@ -47,9 +48,8 @@ void play_song(struct discord *client, const struct discord_interaction *event, 
     if (user == NULL) {
         struct discord_embed embed = {
             .timestamp = discord_timestamp(client),
+            .title = "You are not in a channel...",
         };
-        discord_embed_set_title(&embed, "You are not in a channel...");
-
         struct discord_interaction_response params = {
             .type = DISCORD_INTERACTION_CHANNEL_MESSAGE_WITH_SOURCE,
             .data =
@@ -70,9 +70,8 @@ void play_song(struct discord *client, const struct discord_interaction *event, 
     if (!curl) {
         struct discord_embed embed = {
             .timestamp = discord_timestamp(client),
+            .title = "Failed to initialize cURL.",
         };
-        discord_embed_set_title(&embed, "Failed to initialize cURL");
-
         struct discord_interaction_response params = {
             .type = DISCORD_INTERACTION_CHANNEL_MESSAGE_WITH_SOURCE,
             .data =
@@ -92,8 +91,8 @@ void play_song(struct discord *client, const struct discord_interaction *event, 
     if (!search) {
         struct discord_embed embed = {
             .timestamp = discord_timestamp(client),
+            .title = "Failed to escape the search query.",
         };
-        discord_embed_set_title(&embed, "Failed to escape the search query");
 
         struct discord_interaction_response params = {
             .type = DISCORD_INTERACTION_CHANNEL_MESSAGE_WITH_SOURCE,
@@ -115,8 +114,8 @@ void play_song(struct discord *client, const struct discord_interaction *event, 
     if (!searchQuery) {
         struct discord_embed embed = {
             .timestamp = discord_timestamp(client),
+            .title = "Failed to allocate memory for the search query.",
         };
-        discord_embed_set_title(&embed, "Failed to allocate memory for the search query.");
 
         struct discord_interaction_response params = {
             .type = DISCORD_INTERACTION_CHANNEL_MESSAGE_WITH_SOURCE,
@@ -152,9 +151,8 @@ void play_song(struct discord *client, const struct discord_interaction *event, 
     if (status == COGLINK_FAILED) {
         struct discord_embed embed = {
             .timestamp = discord_timestamp(client),
+            .title = "Failed to load tracks.",
         };
-        discord_embed_set_title(&embed, "Failed to load the track.");
-
         struct discord_interaction_response params = {
             .type = DISCORD_INTERACTION_CHANNEL_MESSAGE_WITH_SOURCE,
             .data =
@@ -167,40 +165,45 @@ void play_song(struct discord *client, const struct discord_interaction *event, 
                 },
         };
         discord_create_interaction_response(client, event->id, event->token, &params, NULL);
-
         return;
     }
-
     switch (response.type) {
     case COGLINK_LOAD_TYPE_TRACK: {
         struct coglink_load_tracks_track *track_response = response.data;
-
+        char title[64 + 1];
         char description[4000 + 1];
-        char author[256 + 1];
+        char author[64 + 1];
         struct coglink_player_queue *queue = coglink_get_player_queue(c_client, player);
-        struct discord_embed embed = {
-            .timestamp = discord_timestamp(client),
-        };
         if (queue->size == 0) {
-            discord_embed_set_title(&embed, "Now Playing...");
             snprintf(description, sizeof(description), "`%s.`", track_response->info->title);
+            snprintf(title, sizeof(title), "Now Playing...");
             struct coglink_update_player_params params = {
+                .paused = COGLINK_PAUSED_STATE_FALSE,
                 .track =
                     &(struct coglink_update_player_track_params){
                         .encoded = track_response->encoded,
                     },
             };
+            is_paused = false;
             coglink_update_player(c_client, player, &params, NULL);
         } else {
-            discord_embed_set_title(&embed, "Queued...");
+            snprintf(title, sizeof(title), "Queued...");
             snprintf(description, sizeof(description), "`%s.`", track_response->info->title);
         }
         snprintf(author, sizeof(author), "By: %s", track_response->info->author);
-        discord_embed_set_footer(&embed, author,
-                                 "https://cdn.discordapp.com/avatars/1186478232875311265/90c3d15ae122604a197e34af31628449?size=1024",
-                                 NULL);
-        discord_embed_set_description(&embed, description);
-        discord_embed_set_image(&embed, track_response->info->artworkUrl, NULL, 0, 0);
+        struct discord_embed embed = {
+            .title = title,
+            .description = description,
+            .image = &(struct discord_embed_image){
+                .url = track_response->info->artworkUrl,
+            },
+            .footer = &(struct discord_embed_footer){
+                .text = author,
+                .icon_url = "https://cdn.discordapp.com/avatars/1186478232875311265/90c3d15ae122604a197e34af31628449?size=1024",
+            },
+            .timestamp = discord_timestamp(client),
+        };
+
         struct discord_interaction_response params = {
             .type = DISCORD_INTERACTION_CHANNEL_MESSAGE_WITH_SOURCE,
             .data =
@@ -210,49 +213,53 @@ void play_song(struct discord *client, const struct discord_interaction *event, 
                             .size = 1,
                             .array = &embed,
                         },
-                },
-        };
+                }};
+
         discord_create_interaction_response(client, event->id, event->token, &params, NULL);
         coglink_add_track_to_queue(c_client, player, track_response->encoded);
-        discord_embed_cleanup(&embed);
         break;
     }
     case COGLINK_LOAD_TYPE_PLAYLIST: {
         struct coglink_load_tracks_playlist *data = response.data;
 
+        char title[64 + 1];
         char description[4000 + 1];
-        char author[256 + 1];
-        char tracks[64 + 1];
+        char author[64 + 1];
 
         struct coglink_player_queue *queue = coglink_get_player_queue(c_client, player);
 
         if (queue->size == 0) {
-            snprintf(description, sizeof(description), "`%s`", data->tracks->array[0]->info->title);
-            snprintf(tracks, sizeof(tracks), "Playing a playlist with %" PRIu64 " tracks...", data->tracks->size);
+            snprintf(title, sizeof(title), "Playing...");
+            snprintf(description, sizeof(description), "A playlist with %" PRIu64 " tracks, first up `%s.`", data->tracks->size, data->tracks->array[0]->info->title);
             snprintf(author, sizeof(author), "By: %s", data->tracks->array[0]->info->author);
-
             struct coglink_update_player_params params = {
+                .paused = COGLINK_PAUSED_STATE_FALSE,
                 .track =
                     &(struct coglink_update_player_track_params){
                         .encoded = data->tracks->array[queue->size]->encoded,
                     },
             };
+            is_paused = false;
 
             coglink_update_player(c_client, player, &params, NULL);
         } else {
-            snprintf(tracks, sizeof(tracks), "Queued %" PRIu64 " tracks...", data->tracks->size);
+            snprintf(title, sizeof(title), "Queued...");
+            snprintf(description, sizeof(description), "%" PRIu64 " tracks...", data->tracks->size);
+            snprintf(author, sizeof(author), "");
         }
 
         struct discord_embed embed = {
+            .title = title,
+            .description = description,
+            .image = &(struct discord_embed_image){
+                .url = data->tracks->array[0]->info->artworkUrl,
+            },
+            .footer = &(struct discord_embed_footer){
+                .text = author,
+                .icon_url = "https://cdn.discordapp.com/avatars/1186478232875311265/90c3d15ae122604a197e34af31628449?size=1024",
+            },
             .timestamp = discord_timestamp(client),
         };
-
-        discord_embed_set_title(&embed, tracks);
-        discord_embed_set_description(&embed, description);
-        discord_embed_set_image(&embed, data->tracks->array[0]->info->artworkUrl, NULL, 0, 0);
-        discord_embed_set_footer(&embed, author,
-                                 "https://cdn.discordapp.com/avatars/1186478232875311265/90c3d15ae122604a197e34af31628449?size=1024",
-                                 NULL);
         struct discord_interaction_response params = {
             .type = DISCORD_INTERACTION_CHANNEL_MESSAGE_WITH_SOURCE,
             .data =
@@ -269,38 +276,47 @@ void play_song(struct discord *client, const struct discord_interaction *event, 
         for (size_t i = 0; i < data->tracks->size; i++) {
             coglink_add_track_to_queue(c_client, player, data->tracks->array[i]->encoded);
         }
-        discord_embed_cleanup(&embed);
         break;
     }
     case COGLINK_LOAD_TYPE_SEARCH: {
         struct coglink_load_tracks_search *search_response = response.data;
 
+        char title[64 + 1];
         char description[4000 + 1];
-        char author[256 + 1];
+        char author[64 + 1];
         struct coglink_player_queue *queue = coglink_get_player_queue(c_client, player);
-        struct discord_embed embed = {
-            .timestamp = discord_timestamp(client),
-        };
         if (queue->size == 0) {
-            discord_embed_set_title(&embed, "Now Playing...");
             snprintf(description, sizeof(description), "`%s.`", search_response->array[0]->info->title);
-            struct coglink_update_player_params params = {.track =
-                                                              &(struct coglink_update_player_track_params){
-                                                                  .encoded = search_response->array[0]->encoded,
-                                                              },
-                                                          .volume = 100};
+            snprintf(title, sizeof(title), "Now Playing...");
+            snprintf(author, sizeof(author), "By: %s", search_response->array[0]->info->author);
 
+            struct coglink_update_player_params params = {
+                .paused = COGLINK_PAUSED_STATE_FALSE,
+                .track =
+                    &(struct coglink_update_player_track_params){
+                        .encoded = search_response->array[0]->encoded,
+                    },
+            };
+            is_paused = false;
             coglink_update_player(c_client, player, &params, NULL);
         } else {
-            discord_embed_set_title(&embed, "Queued...");
+            snprintf(title, sizeof(title), "Queued...");
             snprintf(description, sizeof(description), "`%s.`", search_response->array[0]->info->title);
+            snprintf(author, sizeof(author), "By: %s", search_response->array[0]->info->author);
         }
-        snprintf(author, sizeof(author), "By: %s", search_response->array[0]->info->author);
-        discord_embed_set_footer(&embed, author,
-                                 "https://cdn.discordapp.com/avatars/1186478232875311265/90c3d15ae122604a197e34af31628449?size=1024",
-                                 NULL);
-        discord_embed_set_description(&embed, description);
-        discord_embed_set_image(&embed, search_response->array[0]->info->artworkUrl, NULL, 0, 0);
+        struct discord_embed embed = {
+            .title = title,
+            .description = description,
+            .image = &(struct discord_embed_image){
+                .url = search_response->array[0]->info->artworkUrl,
+            },
+            .footer = &(struct discord_embed_footer){
+                .text = author,
+                .icon_url = "https://cdn.discordapp.com/avatars/1186478232875311265/90c3d15ae122604a197e34af31628449?size=1024",
+            },
+            .timestamp = discord_timestamp(client),
+        };
+
         struct discord_interaction_response params = {
             .type = DISCORD_INTERACTION_CHANNEL_MESSAGE_WITH_SOURCE,
             .data =
@@ -313,16 +329,19 @@ void play_song(struct discord *client, const struct discord_interaction *event, 
                 },
         };
         discord_create_interaction_response(client, event->id, event->token, &params, NULL);
-
         coglink_add_track_to_queue(c_client, player, search_response->array[0]->encoded);
-        discord_embed_cleanup(&embed);
         break;
     }
     case COGLINK_LOAD_TYPE_EMPTY: {
+
         struct discord_embed embed = {
+            .title = "No tracks found...",
+            .description = "No tracks were found for the search query, please try again.",
+            .footer = &(struct discord_embed_footer){
+                .icon_url = "https://cdn.discordapp.com/avatars/1186478232875311265/90c3d15ae122604a197e34af31628449?size=1024",
+            },
             .timestamp = discord_timestamp(client),
         };
-        discord_embed_set_title(&embed, "No tracks found.");
         struct discord_interaction_response params = {
             .type = DISCORD_INTERACTION_CHANNEL_MESSAGE_WITH_SOURCE,
             .data =
@@ -335,20 +354,21 @@ void play_song(struct discord *client, const struct discord_interaction *event, 
                 },
         };
         discord_create_interaction_response(client, event->id, event->token, &params, NULL);
-        discord_embed_cleanup(&embed);
         break;
     }
     case COGLINK_LOAD_TYPE_ERROR: {
         struct coglink_load_tracks_error *data = response.data;
-
-        char title[4000 + 1];
-        snprintf(title, sizeof(title), "Failed to load. %s", data->message);
+        char description[4000 + 1];
+        snprintf(description, sizeof(description), "Failed to load. %s", data->message);
 
         struct discord_embed embed = {
+            .title = "Failed to load...",
+            .description = description,
+            .footer = &(struct discord_embed_footer){
+                .icon_url = "https://cdn.discordapp.com/avatars/1186478232875311265/90c3d15ae122604a197e34af31628449?size=1024",
+            },
             .timestamp = discord_timestamp(client),
         };
-        discord_embed_set_title(&embed, title);
-
         struct discord_interaction_response params = {
             .type = DISCORD_INTERACTION_CHANNEL_MESSAGE_WITH_SOURCE,
             .data =
@@ -361,7 +381,6 @@ void play_song(struct discord *client, const struct discord_interaction *event, 
                 },
         };
         discord_create_interaction_response(client, event->id, event->token, &params, NULL);
-        discord_embed_cleanup(&embed);
         break;
     }
     }
@@ -369,14 +388,16 @@ void play_song(struct discord *client, const struct discord_interaction *event, 
 }
 void skip_song(struct discord *client, const struct discord_interaction *event, struct coglink_client *c_client) {
 
-    struct coglink_player *player = coglink_create_player(c_client, event->guild_id);
+    char title[64 + 1];
+    char description[4000 + 1];
+    char author[64 + 1];
 
+    struct coglink_player *player = coglink_create_player(c_client, event->guild_id);
     if (!player) {
         struct discord_embed embed = {
             .timestamp = discord_timestamp(client),
+            .title = "Failed to get the node.",
         };
-        discord_embed_set_title(&embed, "Failed to get the node.");
-
         struct discord_interaction_response params = {
             .type = DISCORD_INTERACTION_CHANNEL_MESSAGE_WITH_SOURCE,
             .data =
@@ -394,12 +415,13 @@ void skip_song(struct discord *client, const struct discord_interaction *event, 
     struct coglink_player_queue *queue = coglink_get_player_queue(c_client, player);
 
     if (queue->size == 0) {
-        printf("Queue Size: %zu\n", queue->size);
         struct discord_embed embed = {
+            .title = "No tracks to skip...",
+            .footer = &(struct discord_embed_footer){
+                .icon_url = "https://cdn.discordapp.com/avatars/1186478232875311265/90c3d15ae122604a197e34af31628449?size=1024",
+            },
             .timestamp = discord_timestamp(client),
         };
-        discord_embed_set_title(&embed, "No tracks in the queue...");
-
         struct discord_interaction_response params = {
             .type = DISCORD_INTERACTION_CHANNEL_MESSAGE_WITH_SOURCE,
             .data =
@@ -415,12 +437,13 @@ void skip_song(struct discord *client, const struct discord_interaction *event, 
         return;
     }
     if (queue->size == 1) {
-        printf("before size: %zu\n", queue->size);
         struct discord_embed embed = {
+            .title = "Only one track in the queue...",
+            .footer = &(struct discord_embed_footer){
+                .icon_url = "https://cdn.discordapp.com/avatars/1186478232875311265/90c3d15ae122604a197e34af31628449?size=1024",
+            },
             .timestamp = discord_timestamp(client),
         };
-        discord_embed_set_title(&embed, "No tracks to skip...");
-
         struct discord_interaction_response params = {
             .type = DISCORD_INTERACTION_CHANNEL_MESSAGE_WITH_SOURCE,
             .data =
@@ -435,8 +458,242 @@ void skip_song(struct discord *client, const struct discord_interaction *event, 
         discord_create_interaction_response(client, event->id, event->token, &params, NULL);
         return;
     }
-    printf("Queue Size P: %zu\n", queue->size);
-    coglink_update_player(c_client, player, &(struct coglink_update_player_params){.track = &(struct coglink_update_player_track_params){.encoded = queue->array[1]}}, NULL);
+    struct coglink_update_player response = {0};
+    struct coglink_update_player_params next_track = {
+        .paused = COGLINK_PAUSED_STATE_FALSE,
+        .track = &(struct coglink_update_player_track_params){
+            .encoded = queue->array[1]}};
+    is_paused = false;
+    coglink_update_player(c_client, player, &next_track, &response);
     coglink_remove_track_from_queue(c_client, player, 0);
-    printf("Queue Size A: %zu\n", queue->size);
+    snprintf(title, sizeof(title), "Now playing...");
+    snprintf(description, sizeof(description), "Now playing `%s.`", response.track->info->title);
+    snprintf(author, sizeof(author), "By: %s", response.track->info->author);
+    struct discord_embed embed = {
+        .title = title,
+        .description = description,
+        .image = &(struct discord_embed_image){
+            .url = response.track->info->artworkUrl,
+        },
+        .footer = &(struct discord_embed_footer){
+            .text = author,
+            .icon_url = "https://cdn.discordapp.com/avatars/1186478232875311265/90c3d15ae122604a197e34af31628449?size=1024",
+        },
+        .timestamp = discord_timestamp(client),
+    };
+    struct discord_interaction_response params = {
+        .type = DISCORD_INTERACTION_CHANNEL_MESSAGE_WITH_SOURCE,
+        .data =
+            &(struct discord_interaction_callback_data){
+                .embeds =
+                    &(struct discord_embeds){
+                        .size = 1,
+                        .array = &embed,
+                    },
+            },
+    };
+    discord_create_interaction_response(client, event->id, event->token, &params, NULL);
+    return;
+}
+void stop(struct discord *client, const struct discord_interaction *event, struct coglink_client *c_client) {
+
+    struct coglink_player *player = coglink_create_player(c_client, event->guild_id);
+    if (!player) {
+        struct discord_embed embed = {
+            .timestamp = discord_timestamp(client),
+            .title = "Failed to get the node.",
+        };
+        struct discord_interaction_response params = {
+            .type = DISCORD_INTERACTION_CHANNEL_MESSAGE_WITH_SOURCE,
+            .data =
+                &(struct discord_interaction_callback_data){
+                    .embeds =
+                        &(struct discord_embeds){
+                            .size = 1,
+                            .array = &embed,
+                        },
+                },
+        };
+        discord_create_interaction_response(client, event->id, event->token, &params, NULL);
+        return;
+    }
+    if (coglink_remove_player(c_client, player) == COGLINK_FAILED) {
+        struct discord_embed embed = {
+            .title = "Failed...",
+            .description = "Failed to remove the player.",
+            .footer = &(struct discord_embed_footer){
+                .icon_url = "https://cdn.discordapp.com/avatars/1186478232875311265/90c3d15ae122604a197e34af31628449?size=1024",
+            },
+            .timestamp = discord_timestamp(client),
+        };
+        struct discord_interaction_response params = {
+            .type = DISCORD_INTERACTION_CHANNEL_MESSAGE_WITH_SOURCE,
+            .data =
+                &(struct discord_interaction_callback_data){
+                    .embeds =
+                        &(struct discord_embeds){
+                            .size = 1,
+                            .array = &embed,
+                        },
+                },
+        };
+        discord_create_interaction_response(client, event->id, event->token, &params, NULL);
+        return;
+    }
+
+    if (coglink_leave_voice_channel(c_client, client, event->guild_id)) {
+        struct discord_embed embed = {
+            .title = "Failed...",
+            .description = "Failed to disconnect from the voice channel.",
+            .footer = &(struct discord_embed_footer){
+                .icon_url = "https://cdn.discordapp.com/avatars/1186478232875311265/90c3d15ae122604a197e34af31628449?size=1024",
+            },
+            .timestamp = discord_timestamp(client),
+        };
+        struct discord_interaction_response params = {
+            .type = DISCORD_INTERACTION_CHANNEL_MESSAGE_WITH_SOURCE,
+            .data =
+                &(struct discord_interaction_callback_data){
+                    .embeds =
+                        &(struct discord_embeds){
+                            .size = 1,
+                            .array = &embed,
+                        },
+                },
+        };
+        discord_create_interaction_response(client, event->id, event->token, &params, NULL);
+        return;
+    }
+    struct discord_embed embed = {
+        .title = "Left the voice channel.",
+        .footer = &(struct discord_embed_footer){
+            .icon_url = "https://cdn.discordapp.com/avatars/1186478232875311265/90c3d15ae122604a197e34af31628449?size=1024",
+        },
+        .timestamp = discord_timestamp(client),
+    };
+    struct discord_interaction_response params = {
+        .type = DISCORD_INTERACTION_CHANNEL_MESSAGE_WITH_SOURCE,
+        .data =
+            &(struct discord_interaction_callback_data){
+                .embeds =
+                    &(struct discord_embeds){
+                        .size = 1,
+                        .array = &embed,
+                    },
+            },
+    };
+    discord_create_interaction_response(client, event->id, event->token, &params, NULL);
+    return;
+}
+void pp(struct discord *client, const struct discord_interaction *event, struct coglink_client *c_client) {
+    struct coglink_player *player = coglink_create_player(c_client, event->guild_id);
+    if (!player) {
+        struct discord_embed embed = {
+            .timestamp = discord_timestamp(client),
+            .title = "Failed to get the node...",
+        };
+        struct discord_interaction_response params = {
+            .type = DISCORD_INTERACTION_CHANNEL_MESSAGE_WITH_SOURCE,
+            .data =
+                &(struct discord_interaction_callback_data){
+                    .embeds =
+                        &(struct discord_embeds){
+                            .size = 1,
+                            .array = &embed,
+                        },
+                },
+        };
+        discord_create_interaction_response(client, event->id, event->token, &params, NULL);
+        return;
+    }
+    struct coglink_update_player_params pause = {
+        .paused = COGLINK_PAUSED_STATE_TRUE,
+    };
+
+    struct coglink_update_player_params resume = {
+        .paused = COGLINK_PAUSED_STATE_FALSE,
+    };
+
+    if (is_paused) {
+        coglink_update_player(c_client, player, &resume, NULL);
+        is_paused = false;
+        struct discord_embed embed = {
+            .timestamp = discord_timestamp(client),
+            .title = "Resumed...",
+        };
+        struct discord_interaction_response params = {
+            .type = DISCORD_INTERACTION_CHANNEL_MESSAGE_WITH_SOURCE,
+            .data =
+                &(struct discord_interaction_callback_data){
+                    .embeds =
+                        &(struct discord_embeds){
+                            .size = 1,
+                            .array = &embed,
+                        },
+                },
+        };
+        discord_create_interaction_response(client, event->id, event->token, &params, NULL);
+        return;
+    } else {
+        coglink_update_player(c_client, player, &pause, NULL);
+        is_paused = true;
+        struct discord_embed embed = {
+            .timestamp = discord_timestamp(client),
+            .title = "Paused...",
+        };
+        struct discord_interaction_response params = {
+            .type = DISCORD_INTERACTION_CHANNEL_MESSAGE_WITH_SOURCE,
+            .data =
+                &(struct discord_interaction_callback_data){
+                    .embeds =
+                        &(struct discord_embeds){
+                            .size = 1,
+                            .array = &embed,
+                        },
+                },
+        };
+        discord_create_interaction_response(client, event->id, event->token, &params, NULL);
+        return;
+    }
+    return;
+}
+void rejoin(struct discord *client, const struct discord_interaction *event, struct coglink_client *c_client) {
+    struct coglink_user *user = coglink_get_user(c_client, event->member->user->id);
+    if (user == NULL) {
+        struct discord_embed embed = {
+            .timestamp = discord_timestamp(client),
+            .title = "You are not in a channel...",
+        };
+        struct discord_interaction_response params = {
+            .type = DISCORD_INTERACTION_CHANNEL_MESSAGE_WITH_SOURCE,
+            .data =
+                &(struct discord_interaction_callback_data){
+                    .embeds =
+                        &(struct discord_embeds){
+                            .size = 1,
+                            .array = &embed,
+                        },
+                },
+        };
+        discord_create_interaction_response(client, event->id, event->token, &params, NULL);
+        return;
+    }
+    coglink_join_voice_channel(c_client, client, event->guild_id, user->channel_id);
+    struct discord_embed embed = {
+        .timestamp = discord_timestamp(client),
+        .title = "Rejoined...",
+    };
+    struct discord_interaction_response params = {
+        .type = DISCORD_INTERACTION_CHANNEL_MESSAGE_WITH_SOURCE,
+        .data =
+            &(struct discord_interaction_callback_data){
+                .embeds =
+                    &(struct discord_embeds){
+                        .size = 1,
+                        .array = &embed,
+                    },
+            },
+    };
+    discord_create_interaction_response(client, event->id, event->token, &params, NULL);
+    return;
 }

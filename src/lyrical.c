@@ -15,10 +15,11 @@
 struct coglink_client *c_client;
 u64snowflake GUILD_ID;
 u64snowflake APP_ID;
+u64snowflake BOT_ID;
 char NODE_PASS[33];
 char NODE_IP[16];
 char NODE_PORT[6];
-char BOT_ID[65];
+
 
 void lyrical_ready(struct coglink_client *client, struct coglink_node *node, struct coglink_ready *ready) {
     (void)client;
@@ -47,22 +48,32 @@ void on_ready(struct discord *client, const struct discord_ready *event) {
     APP_ID = event->application->id;
     struct discord_application_command_option song_options[] = {{
         .type = DISCORD_APPLICATION_OPTION_STRING,
-        .name = "song",
-        .description = "The song to play",
+        .name = "track",
+        .description = "The track to play. Can be a URL, search query, or playlist URL.",
         .required = true,
     }};
     struct discord_create_guild_application_command play = {
         .name = "play",
-        .description = "Plays the given link",
+        .description = "Plays a track, playlist, or searchs for a track.",
         .options = &(struct discord_application_command_options){.array = song_options,
                                                                  .size = sizeof(song_options) / sizeof(*song_options)},
     };
     struct discord_create_guild_application_command skip = {
         .name = "skip",
-        .description = "Skips the current song.",
+        .description = "Skips the current track.",
+    };
+    struct discord_create_guild_application_command stop = {
+        .name = "stop",
+        .description = "Clears the queue and stops the current track.",
+    };
+    struct discord_create_guild_application_command pp = {
+        .name = "pp",
+        .description = "Play or pauses the current track.",
     };
     discord_create_guild_application_command(client, APP_ID, GUILD_ID, &play, NULL);
     discord_create_guild_application_command(client, APP_ID, GUILD_ID, &skip, NULL);
+    discord_create_guild_application_command(client, APP_ID, GUILD_ID, &stop, NULL);
+    discord_create_guild_application_command(client, APP_ID, GUILD_ID, &pp, NULL);
 }
 
 void get_config_feilds(struct discord *client, char *field, char *subfield, char *dest) {
@@ -71,14 +82,15 @@ void get_config_feilds(struct discord *client, char *field, char *subfield, char
 }
 
 struct discord *init_bot() {
-    struct discord *client = discord_config_init("../config.json");
+    struct discord *client = discord_config_init("config.json");
     char Temp[64];
     get_config_feilds(client, "server", "guild_id", Temp);
     GUILD_ID = strtoul(Temp, NULL, 10);
     get_config_feilds(client, "server", "node_ip", NODE_IP);
     get_config_feilds(client, "server", "node_pass", NODE_PASS);
     get_config_feilds(client, "server", "node_port", NODE_PORT);
-    get_config_feilds(client, "server", "bot_id", BOT_ID);
+    get_config_feilds(client, "server", "bot_id", Temp);
+    BOT_ID = strtoul(Temp, NULL, 10);
     return client;
 }
 
@@ -90,12 +102,21 @@ void on_interaction(struct discord *client, const struct discord_interaction *ev
     if (strcmp(event->data->name, "skip") == 0) {
         skip_song(client, event, c_client);
     }
+    if (strcmp(event->data->name, "stop") == 0) {
+        stop(client, event, c_client);
+    }
+    if (strcmp(event->data->name, "pp") == 0) {
+        pp(client, event, c_client);
+    }
+    if (strcmp(event->data->name, "rejoin") == 0) {
+        rejoin(client, event, c_client);
+    }
 }
 
 int main() {
     struct discord *client = init_bot();
     c_client = malloc(sizeof(struct coglink_client));
-    c_client->bot_id = atoi(BOT_ID);
+    c_client->bot_id = BOT_ID;
     c_client->num_shards = "1";
     struct coglink_nodes nodes = {
         .array =
