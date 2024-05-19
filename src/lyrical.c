@@ -9,17 +9,30 @@
 #include <concord/interaction.h>
 #include <concord/log.h>
 #include <concord/types.h>
+#include <signal.h>
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
-struct coglink_client *c_client;
+
+void handle_sigsegv(int sig) {
+    // Print an error message
+    log_error("Segmentation fault caught! Exiting...");
+
+    // Perform cleanup operations here
+    ccord_shutting_down();
+    // Exit the program
+    exit(sig);
+}
+
+struct coglink_client *C_CLIENT;
+
 u64snowflake GUILD_ID;
 u64snowflake APP_ID;
 u64snowflake BOT_ID;
 char NODE_PASS[33];
 char NODE_IP[16];
 char NODE_PORT[6];
-
 
 void lyrical_ready(struct coglink_client *client, struct coglink_node *node, struct coglink_ready *ready) {
     (void)client;
@@ -88,15 +101,18 @@ void on_ready(struct discord *client, const struct discord_ready *event) {
         .options = &(struct discord_application_command_options){.array = position_options,
                                                                  .size = sizeof(position_options) / sizeof(*position_options)},
     };
+    struct discord_create_guild_application_command test = {
+        .name = "test",
+        .description = "Test",
+    };
 
-    
     discord_create_guild_application_command(client, APP_ID, GUILD_ID, &play, NULL);
     discord_create_guild_application_command(client, APP_ID, GUILD_ID, &skip, NULL);
     discord_create_guild_application_command(client, APP_ID, GUILD_ID, &stop, NULL);
     discord_create_guild_application_command(client, APP_ID, GUILD_ID, &pp, NULL);
     discord_create_guild_application_command(client, APP_ID, GUILD_ID, &get_queue, NULL);
     discord_create_guild_application_command(client, APP_ID, GUILD_ID, &pop_queue, NULL);
-    
+    discord_create_guild_application_command(client, APP_ID, GUILD_ID, &test, NULL);
 }
 
 void get_config_feilds(struct discord *client, char *field, char *subfield, char *dest) {
@@ -119,31 +135,61 @@ struct discord *init_bot() {
 
 void on_interaction(struct discord *client, const struct discord_interaction *event) {
 
-    if (strcmp(event->data->name, "play") == 0) {
-        play_song(client, event, c_client);
-    }
-    if (strcmp(event->data->name, "skip") == 0) {
-        skip_song(client, event, c_client);
-    }
-    if (strcmp(event->data->name, "stop") == 0) {
-        stop(client, event, c_client);
-    }
-    if (strcmp(event->data->name, "pp") == 0) {
-        pp(client, event, c_client);
-    }
-    if (strcmp(event->data->name, "rejoin") == 0) {
-        rejoin(client, event, c_client);
-    }
-    if (strcmp(event->data->name, "queue") == 0) {
-        get_queue(client, event, c_client);
-    }
-     if (strcmp(event->data->name, "pop") == 0) {
-        pop_queue(client, event, c_client);
+    switch (event->type) {
+    case DISCORD_INTERACTION_PING:
+    case DISCORD_INTERACTION_APPLICATION_COMMAND:
+        if (strcmp(event->data->name, "play") == 0) {
+            play_song(client, event, c_client);
+            break;
+        }
+        if (strcmp(event->data->name, "skip") == 0) {
+            skip_song(client, event, c_client);
+            break;
+        }
+        if (strcmp(event->data->name, "stop") == 0) {
+            stop(client, event, c_client);
+            break;
+        }
+        if (strcmp(event->data->name, "pp") == 0) {
+            pp(client, event, c_client);
+            break;
+        }
+        if (strcmp(event->data->name, "rejoin") == 0) {
+            rejoin(client, event, c_client);
+            break;
+        }
+        if (strcmp(event->data->name, "queue") == 0) {
+            get_queue(client, event, c_client);
+            break;
+        }
+        if (strcmp(event->data->name, "pop") == 0) {
+            pop_queue(client, event, c_client);
+            break;
+        }
+        if (strcmp(event->data->name, "test") == 0) {
+            button_test(client, event, c_client);
+            break;
+        }
+        break;
+    case DISCORD_INTERACTION_MESSAGE_COMPONENT:
+        if (strcmp(event->data->custom_id, "test") == 0) {
+            return_test(client, event, c_client);
+        }
+        break;
+    case DISCORD_INTERACTION_APPLICATION_COMMAND_AUTOCOMPLETE:
+        break;
+    case DISCORD_INTERACTION_MODAL_SUBMIT:
+        break;
+    default:
+        break;
     }
 }
 
 int main() {
+    signal(SIGSEGV, handle_sigsegv);
     struct discord *client = init_bot();
+    ccord_global_init();
+
     c_client = malloc(sizeof(struct coglink_client));
     c_client->bot_id = BOT_ID;
     c_client->num_shards = "1";

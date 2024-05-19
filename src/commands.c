@@ -7,8 +7,10 @@
 #include <coglink/utils.h>
 #include <concord/channel.h>
 #include <concord/discord-events.h>
+#include <concord/discord-response.h>
 #include <concord/discord.h>
 #include <concord/discord_codecs.h>
+#include <concord/error.h>
 #include <concord/interaction.h>
 #include <concord/log.h>
 #include <concord/queue.h>
@@ -17,6 +19,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <time.h>
 
 bool is_paused = false;
 
@@ -438,6 +441,7 @@ void skip_song(struct discord *client, const struct discord_interaction *event, 
     }
     if (queue->size == 1) {
         coglink_remove_player(c_client, player);
+        coglink_destroy_player(c_client, player);
         coglink_leave_voice_channel(c_client, client, event->guild_id);
         struct discord_embed embed = {
             .title = "Skipped...",
@@ -750,7 +754,7 @@ void get_queue(struct discord *client, const struct discord_interaction *event, 
     };
     char *description = calloc(queue->size, 128 + 1);
     size_t description_size = queue->size * (128 + 1);
-    
+
     struct coglink_node *node = coglink_get_player_node(c_client, player);
     struct coglink_tracks tracks = {0};
     coglink_decode_tracks(c_client, node, &decode_params, &tracks);
@@ -802,9 +806,9 @@ void pop_queue(struct discord *client, const struct discord_interaction *event, 
     }
     struct coglink_player_queue *queue = coglink_get_player_queue(c_client, player);
     size_t position = (strtoul(event->data->options->array->value, NULL, 10) - 1);
-    
+
     printf("\n%zu\n", position);
-    if (position >= queue->size || position < 0){
+    if (position >= queue->size || position < 0) {
         struct discord_embed embed = {
             .timestamp = discord_timestamp(client),
             .title = "Invalid position...",
@@ -840,5 +844,115 @@ void pop_queue(struct discord *client, const struct discord_interaction *event, 
             },
     };
     discord_create_interaction_response(client, event->id, event->token, &params, NULL);
+    return;
+}
+
+void button_test(struct discord *client, const struct discord_interaction *event, struct coglink_client *c_client) {
+    struct coglink_player *player = coglink_create_player(c_client, event->guild_id);
+    if (!player) {
+        struct discord_embed embed = {
+            .timestamp = discord_timestamp(client),
+            .title = "Failed to get the node...",
+        };
+        struct discord_interaction_response params = {
+            .type = DISCORD_INTERACTION_CHANNEL_MESSAGE_WITH_SOURCE,
+            .data =
+                &(struct discord_interaction_callback_data){
+                    .embeds =
+                        &(struct discord_embeds){
+                            .size = 1,
+                            .array = &embed,
+                        },
+                },
+        };
+        discord_create_interaction_response(client, event->id, event->token, &params, NULL);
+        return;
+    }
+    struct discord_component button[] = {
+        {
+            .type = DISCORD_COMPONENT_BUTTON,
+            .custom_id = "test",
+            .label = "Test",
+            .style = DISCORD_BUTTON_PRIMARY,
+            .disabled = false,
+        }};
+    struct discord_component action_rows = {
+        .type = DISCORD_COMPONENT_ACTION_ROW,
+        .components = &(struct discord_components){
+            .array = button,
+            .size = 1}};
+
+    struct discord_interaction_response(params) = {
+        .type = DISCORD_INTERACTION_CHANNEL_MESSAGE_WITH_SOURCE,
+        .data =
+            &(struct discord_interaction_callback_data){
+                .content = "Test",
+                .components = &(struct discord_components){
+                    .array = &action_rows,
+                    .size = 1}}};
+
+    discord_create_interaction_response(client, event->id, event->token, &params, NULL);
+    return;
+}
+void return_test(struct discord *client, const struct discord_interaction *event, struct coglink_client *c_client) {
+    char title[64 + 1];
+    char description[4000 + 1];
+    char author[64 + 1];
+    
+    struct coglink_tracks track_response = {0};
+    struct coglink_player *player = coglink_create_player(c_client, event->guild_id);
+    if (!player) {
+        struct discord_embed embed = {
+            .timestamp = discord_timestamp(client),
+            .title = "Failed to get the node...",
+        };
+        struct discord_interaction_response params = {
+            .type = DISCORD_INTERACTION_CHANNEL_MESSAGE_WITH_SOURCE,
+            .data =
+                &(struct discord_interaction_callback_data){
+                    .embeds =
+                        &(struct discord_embeds){
+                            .size = 1,
+                            .array = &embed,
+                        },
+                },
+        };
+        discord_create_interaction_response(client, event->id, event->token, &params, NULL);
+        return;
+    }
+    struct coglink_node *node = coglink_get_player_node(c_client, player);
+    struct coglink_player_queue *queue = coglink_get_player_queue(c_client, player);
+    struct coglink_decode_tracks_params decode_params = {
+        .array = queue->array,
+        .size = queue->size,
+    };
+
+    coglink_decode_tracks(c_client, node, &decode_params, &track_response);
+    snprintf(description, sizeof(description), "`%s.`", track_response.array[0]->info->title);
+    snprintf(title, sizeof(title), "Now Playing...");
+    struct discord_embed embed = {
+        .title = title,
+        .description = description,
+        .image = &(struct discord_embed_image){
+            .url = track_response.array[0]->info->artworkUrl,
+        },
+        .footer = &(struct discord_embed_footer){
+            .text = author,
+            .icon_url = "https://cdn.discordapp.com/avatars/1186478232875311265/90c3d15ae122604a197e34af31628449?size=1024",
+        },
+        .timestamp = discord_timestamp(client),
+    };
+
+    struct discord_edit_original_interaction_response params = {
+        .embeds = &(struct discord_embeds){
+            .size = 1,
+            .array = &embed,
+        },
+        .components = &(struct discord_components){
+            .size = 0,
+        },
+    };
+    struct discord_ret_interaction_response ret = {0};
+    discord_get_original_interaction_response(client, event->application_id, event->token, &ret);
     return;
 }

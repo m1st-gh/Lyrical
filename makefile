@@ -1,6 +1,6 @@
 CC = clang
 CFLAGS = -Wall -Wextra -g
-LDFLAGS = -lcoglink -ldiscord -lcurl -pthread
+LDFLAGS = -lcoglink -ldiscord -lcurl -pthread -g
 
 OBJ_DIR = obj
 

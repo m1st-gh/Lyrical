@@ -7,17 +7,24 @@
 #include <coglink/websocket.h>
 #include <concord/discord-events.h>
 #include <coglink/utils.h>
+
 #ifndef LYRICAL_H
 #define LYRICAL_H
+
 /**
- * Initializes the bot.
+ * @brief Initializes the bot.
+ * 
+ * This function initializes the Discord bot and returns a pointer to the initialized discord structure.
  * 
  * @return A pointer to the initialized discord structure.
  */
 struct discord *init_bot();
 
 /**
- * Handles the interaction create event.
+ * @brief Handles the interaction create event.
+ * 
+ * This function is called when an interaction create event occurs.
+ * It takes the discord client and the interaction event as parameters.
  * 
  * @param client The discord client.
  * @param event The interaction event.
@@ -25,7 +32,10 @@ struct discord *init_bot();
 void on_interaction_create(struct discord *client, const struct discord_interaction *event);
 
 /**
- * Handles the ready event.
+ * @brief Handles the ready event.
+ * 
+ * This function is called when the bot is ready to start receiving events.
+ * It takes the discord client and the ready event as parameters.
  * 
  * @param client The discord client.
  * @param event The ready event.
@@ -33,7 +43,10 @@ void on_interaction_create(struct discord *client, const struct discord_interact
 void on_ready(struct discord *client, const struct discord_ready *event);
 
 /**
- * Plays a song.
+ * @brief Plays a song.
+ * 
+ * This function is called to play a song.
+ * It takes the discord client, the interaction event, and the coglink client as parameters.
  * 
  * @param client The discord client.
  * @param event The interaction event.
@@ -42,7 +55,10 @@ void on_ready(struct discord *client, const struct discord_ready *event);
 void play_song(struct discord *client, const struct discord_interaction *event, struct coglink_client *c_client);
 
 /**
- * Skips a song.
+ * @brief Skips a song.
+ * 
+ * This function is called to skip the currently playing song.
+ * It takes the discord client, the interaction event, and the coglink client as parameters.
  * 
  * @param client The discord client.
  * @param event The interaction event.
@@ -51,7 +67,10 @@ void play_song(struct discord *client, const struct discord_interaction *event, 
 void skip_song(struct discord *client, const struct discord_interaction *event, struct coglink_client *c_client);
 
 /**
- * Stops the bot.
+ * @brief Stops the bot.
+ * 
+ * This function is called to stop the bot.
+ * It takes the discord client, the interaction event, and the coglink client as parameters.
  * 
  * @param client The discord client.
  * @param event The interaction event.
@@ -60,7 +79,10 @@ void skip_song(struct discord *client, const struct discord_interaction *event, 
 void stop(struct discord *client, const struct discord_interaction *event, struct coglink_client *c_client);
 
 /**
- * Handles the pp event.
+ * @brief Handles the pp event.
+ * 
+ * This function is called to handle the pp event.
+ * It takes the discord client, the interaction event, and the coglink client as parameters.
  * 
  * @param client The discord client.
  * @param event The interaction event.
@@ -69,7 +91,10 @@ void stop(struct discord *client, const struct discord_interaction *event, struc
 void pp(struct discord *client, const struct discord_interaction *event, struct coglink_client *c_client);
 
 /**
- * Clears the bot's state.
+ * @brief Clears the bot's state.
+ * 
+ * This function is called to clear the bot's state.
+ * It takes the discord client, the interaction event, and the coglink client as parameters.
  * 
  * @param client The discord client.
  * @param event The interaction event.
@@ -78,7 +103,10 @@ void pp(struct discord *client, const struct discord_interaction *event, struct 
 void clear(struct discord *client, const struct discord_interaction *event, struct coglink_client *c_client);
 
 /**
- * Makes the bot rejoin.
+ * @brief Makes the bot rejoin.
+ * 
+ * This function is called to make the bot rejoin.
+ * It takes the discord client, the interaction event, and the coglink client as parameters.
  * 
  * @param client The discord client.
  * @param event The interaction event.
@@ -87,16 +115,22 @@ void clear(struct discord *client, const struct discord_interaction *event, stru
 void rejoin(struct discord *client, const struct discord_interaction *event, struct coglink_client *c_client);
 
 /**
- * Handles the queue event.
+ * @brief Retrieves the queue from the specified Discord client and interaction event.
+ *
+ * This function is called to retrieve the queue from the specified Discord client and interaction event.
+ * It takes the discord client, the interaction event, and the coglink client as parameters.
  * 
- * @param client The discord client.
+ * @param client The Discord client.
  * @param event The interaction event.
  * @param c_client The coglink client.
  */
-void get_queue (struct discord *client, const struct discord_interaction *event, struct coglink_client *c_client);
+void get_queue(struct discord *client, const struct discord_interaction *event, struct coglink_client *c_client);
 
 /**
- * Handles the queue event.
+ * @brief Handles the queue event.
+ * 
+ * This function is called to handle the queue event.
+ * It takes the discord client, the interaction event, and the coglink client as parameters.
  * 
  * @param client The discord client.
  * @param event The interaction event.
@@ -104,8 +138,18 @@ void get_queue (struct discord *client, const struct discord_interaction *event,
  */
 void pop_queue(struct discord *client, const struct discord_interaction *event, struct coglink_client *c_client);
 
+void button_test(struct discord *client, const struct discord_interaction *event, struct coglink_client *c_client);
+void return_test(struct discord *client, const struct discord_interaction *event, struct coglink_client *c_client);
+static void done_test (struct discord * client, struct discord_response *resp, const struct discord_interaction_response *event);
+
+
+
+
 /**
- * Handles the lyrical stats event.
+ * @brief Handles the lyrical stats event.
+ * 
+ * This function is called to handle the lyrical stats event.
+ * It takes the coglink client, the coglink node, and the coglink stats as parameters.
  * 
  * @param client The coglink client.
  * @param node The coglink node.
@@ -114,11 +158,15 @@ void pop_queue(struct discord *client, const struct discord_interaction *event, 
 void lyrical_stats(struct coglink_client *client, struct coglink_node *node, struct coglink_stats *stats);
 
 /**
- * Handles the lyrical ready event.
+ * @brief Handles the lyrical ready event.
+ * 
+ * This function is called to handle the lyrical ready event.
+ * It takes the coglink client, the coglink node, and the coglink ready as parameters.
  * 
  * @param client The coglink client.
  * @param node The coglink node.
  * @param ready The coglink ready.
  */
 void lyrical_ready(struct coglink_client *client, struct coglink_node *node, struct coglink_ready *ready);
+
 #endif
