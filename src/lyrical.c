@@ -26,6 +26,7 @@ void handle_sigsegv(int sig) {
 }
 
 struct coglink_client *C_CLIENT;
+struct discord *CLIENT;
 
 u64snowflake GUILD_ID;
 u64snowflake APP_ID;
@@ -87,7 +88,7 @@ void on_ready(struct discord *client, const struct discord_ready *event) {
         .name = "stop",
         .description = "Clears the queue and stops the current track.",
     };
-    struct discord_create_guild_application_command pp = {
+    struct discord_create_guild_application_command pause_play = {
         .name = "pp",
         .description = "Play or pauses the current track.",
     };
@@ -105,11 +106,10 @@ void on_ready(struct discord *client, const struct discord_ready *event) {
         .name = "test",
         .description = "Test",
     };
-
     discord_create_guild_application_command(client, APP_ID, GUILD_ID, &play, NULL);
     discord_create_guild_application_command(client, APP_ID, GUILD_ID, &skip, NULL);
     discord_create_guild_application_command(client, APP_ID, GUILD_ID, &stop, NULL);
-    discord_create_guild_application_command(client, APP_ID, GUILD_ID, &pp, NULL);
+    discord_create_guild_application_command(client, APP_ID, GUILD_ID, &pause_play, NULL);
     discord_create_guild_application_command(client, APP_ID, GUILD_ID, &get_queue, NULL);
     discord_create_guild_application_command(client, APP_ID, GUILD_ID, &pop_queue, NULL);
     discord_create_guild_application_command(client, APP_ID, GUILD_ID, &test, NULL);
@@ -139,41 +139,36 @@ void on_interaction(struct discord *client, const struct discord_interaction *ev
     case DISCORD_INTERACTION_PING:
     case DISCORD_INTERACTION_APPLICATION_COMMAND:
         if (strcmp(event->data->name, "play") == 0) {
-            play_song(client, event, c_client);
+            play_song(client, event, C_CLIENT);
             break;
-        }
-        if (strcmp(event->data->name, "skip") == 0) {
-            skip_song(client, event, c_client);
+        } else if (strcmp(event->data->name, "skip") == 0) {
+            skip_song(client, event, C_CLIENT);
             break;
-        }
-        if (strcmp(event->data->name, "stop") == 0) {
-            stop(client, event, c_client);
+        } else if (strcmp(event->data->name, "stop") == 0) {
+            stop(client, event, C_CLIENT);
             break;
-        }
-        if (strcmp(event->data->name, "pp") == 0) {
-            pp(client, event, c_client);
+        } else if (strcmp(event->data->name, "pp") == 0) {
+            pause_play(client, event, C_CLIENT);
             break;
-        }
-        if (strcmp(event->data->name, "rejoin") == 0) {
-            rejoin(client, event, c_client);
+        } else if (strcmp(event->data->name, "rejoin") == 0) {
+            rejoin(client, event, C_CLIENT);
             break;
-        }
-        if (strcmp(event->data->name, "queue") == 0) {
-            get_queue(client, event, c_client);
+        } else if (strcmp(event->data->name, "queue") == 0) {
+            get_queue(client, event, C_CLIENT);
             break;
-        }
-        if (strcmp(event->data->name, "pop") == 0) {
-            pop_queue(client, event, c_client);
+        } else if (strcmp(event->data->name, "pop") == 0) {
+            pop_queue(client, event, C_CLIENT);
             break;
-        }
-        if (strcmp(event->data->name, "test") == 0) {
-            button_test(client, event, c_client);
+        } else if (strcmp(event->data->name, "test") == 0) {
+            button_test(client, event);
             break;
         }
         break;
     case DISCORD_INTERACTION_MESSAGE_COMPONENT:
-        if (strcmp(event->data->custom_id, "test") == 0) {
-            return_test(client, event, c_client);
+        if (strcmp(event->data->custom_id, "primary_button") == 0) {
+            printf("\nButton Pressed\n");
+            button_response(client, event);
+            break;
         }
         break;
     case DISCORD_INTERACTION_APPLICATION_COMMAND_AUTOCOMPLETE:
@@ -188,11 +183,12 @@ void on_interaction(struct discord *client, const struct discord_interaction *ev
 int main() {
     signal(SIGSEGV, handle_sigsegv);
     struct discord *client = init_bot();
+    CLIENT = client;
     ccord_global_init();
 
-    c_client = malloc(sizeof(struct coglink_client));
-    c_client->bot_id = BOT_ID;
-    c_client->num_shards = "1";
+    C_CLIENT = malloc(sizeof(struct coglink_client));
+    C_CLIENT->bot_id = BOT_ID;
+    C_CLIENT->num_shards = "1";
     struct coglink_nodes nodes = {
         .array =
             (struct coglink_node[]){
@@ -203,8 +199,12 @@ int main() {
                  .ssl = false}},
         .size = 1};
 
-    c_client->events = &(struct coglink_events){.on_ready = &lyrical_ready, .on_stats = &lyrical_stats};
-    coglink_connect_nodes(c_client, client, &nodes);
+    C_CLIENT->events = &(struct coglink_events){
+        .on_ready = &lyrical_ready,
+        .on_stats = &lyrical_stats,
+        .on_track_end = &on_track_end,
+    };
+    coglink_connect_nodes(C_CLIENT, client, &nodes);
     discord_add_intents(client, DISCORD_GATEWAY_GUILD_VOICE_STATES);
     discord_add_intents(client, DISCORD_GATEWAY_MESSAGE_CONTENT);
     discord_add_intents(client, DISCORD_GATEWAY_GUILDS);
@@ -212,6 +212,6 @@ int main() {
     discord_set_on_interaction_create(client, &on_interaction);
     discord_run(client);
     discord_cleanup(client);
-    coglink_cleanup(c_client);
+    coglink_cleanup(C_CLIENT);
     ccord_global_cleanup();
 }
