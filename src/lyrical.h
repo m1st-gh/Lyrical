@@ -11,6 +11,10 @@
 #ifndef LYRICAL_H
 #define LYRICAL_H
 
+#define LYRICAL_URL                                         \
+  "https://cdn.discordapp.com/avatars/1186478232875311265/" \
+  "90c3d15ae122604a197e34af31628449?size=1024"
+  
 /**
  * @brief Initializes the bot.
  *
