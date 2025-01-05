@@ -1,3 +1,4 @@
 .env
-src/lyrical.log
-/logs
+/.vscode
+*.code-workspace
+.vscode
