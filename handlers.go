@@ -45,15 +45,42 @@ func verifyUri(uri string) (string, error) {
 
 func (b *Bot) embedQueue(interaction *discordgo.InteractionCreate) *discordgo.MessageEmbed {
 	var discription string = ""
-	queue := b.Queue[interaction.GuildID]
-	for i, track := range queue.Items() {
-		discription += fmt.Sprintf("%v: [%v](%v)\n", i+1, track.Info.Title, track.Info.URI)
+	queue := b.State[interaction.GuildID].Queue
+	if queue.IsEmpty() {
+		embed := &discordgo.MessageEmbed{
+			Title:       "**Current Queue**",
+			Description: "Queue is empty",
+		}
+		return embed
 	}
+	for i, track := range queue.Items() {
+		title := track.Info.Title
+		if len(title) > 40 {
+			title = title[:40] + "..."
+		}
+		if i == queue.Index() {
+			discription += fmt.Sprintf("**%v:** [%v](%v) (Currently Playing)\n", i+1, title, *track.Info.URI)
+		} else {
+			discription += fmt.Sprintf("**%v:** [%v](%v)\n", i+1, title, *track.Info.URI)
+		}
+	}
+
 	embed := &discordgo.MessageEmbed{
-		Title:       "Lyrical",
+		Title:       "**Current Queue**",
 		Description: discription,
 	}
 	return embed
+}
+
+func (b *Bot) queue(interaction *discordgo.InteractionCreate) {
+	Info("Queue called by user: %v", interaction.Member.User.Username)
+	embed := b.embedQueue(interaction)
+	b.Session.InteractionRespond(interaction.Interaction, &discordgo.InteractionResponse{
+		Type: discordgo.InteractionResponseChannelMessageWithSource,
+		Data: &discordgo.InteractionResponseData{
+			Embeds: []*discordgo.MessageEmbed{embed},
+		},
+	})
 }
 
 func (b *Bot) embedNowPlaying(guildID string) (*discordgo.MessageEmbed, []discordgo.MessageComponent) {
@@ -61,19 +88,57 @@ func (b *Bot) embedNowPlaying(guildID string) (*discordgo.MessageEmbed, []discor
 		discordgo.ActionsRow{
 			Components: []discordgo.MessageComponent{
 				discordgo.Button{
-					Label:    "⏮️",
+					Emoji: &discordgo.ComponentEmoji{
+						ID: "1325505582828097668",
+					},
+					Style:    discordgo.SecondaryButton,
+					CustomID: "b_queue",
+				},
+				discordgo.Button{
+					Emoji: &discordgo.ComponentEmoji{
+						ID: "1325505582081376341",
+					},
 					Style:    discordgo.SecondaryButton,
 					CustomID: "b_backward",
 				},
 				discordgo.Button{
-					Label:    "⏯️",
+					Emoji: &discordgo.ComponentEmoji{
+						ID: "1325505587508936874",
+					},
 					Style:    discordgo.SecondaryButton,
 					CustomID: "b_resumePause",
 				},
 				discordgo.Button{
-					Label:    "⏭️",
+					Emoji: &discordgo.ComponentEmoji{
+						ID: "1325505586481074297",
+					},
 					Style:    discordgo.SecondaryButton,
 					CustomID: "b_forward",
+				},
+				discordgo.Button{
+					Emoji: &discordgo.ComponentEmoji{
+						ID: "1325505588540735581",
+					},
+					Style:    discordgo.SecondaryButton,
+					CustomID: "b_stop",
+				},
+			},
+		},
+		discordgo.ActionsRow{
+			Components: []discordgo.MessageComponent{
+				discordgo.Button{
+					Emoji: &discordgo.ComponentEmoji{
+						ID: "1325534933011402773",
+					},
+					Style:    discordgo.SecondaryButton,
+					CustomID: "b_shuffle",
+				},
+				discordgo.Button{
+					Emoji: &discordgo.ComponentEmoji{
+						ID: "1325534932025475142",
+					},
+					Style:    discordgo.SecondaryButton,
+					CustomID: "b_repeat",
 				},
 			},
 		},
@@ -86,13 +151,55 @@ func (b *Bot) embedNowPlaying(guildID string) (*discordgo.MessageEmbed, []discor
 	}
 	embed := &discordgo.MessageEmbed{
 		Title:       "Now Playing",
-		Image:       &discordgo.MessageEmbedImage{URL: fmt.Sprintf("%v?width=854&height=480", *track.Info.ArtworkURL)},
+		Image:       &discordgo.MessageEmbedImage{URL: fmt.Sprintf("%v", *track.Info.ArtworkURL)},
 		Description: fmt.Sprintf("[%v](%v)", track.Info.Title, *track.Info.URI),
 	}
 	return embed, buttons
 }
+func (b *Bot) bShuffle(interaction *discordgo.InteractionCreate) {
+	Info("Shuffle called by user: %v", interaction.Member.User.Username)
+	queue := b.State[interaction.GuildID].Queue
+	if queue == nil {
+		return
+	}
+	queue.Shuffle()
+	b.Session.InteractionRespond(interaction.Interaction, &discordgo.InteractionResponse{
+		Type: discordgo.InteractionResponseDeferredMessageUpdate,
+	})
+}
 
-func (b *Bot) resumePause(interaction *discordgo.InteractionCreate) {
+func (b *Bot) bStop(interaction *discordgo.InteractionCreate) {
+	Info("Stop called by user: %v", interaction.Member.User.Username)
+	player := b.Link.Player(snowflake.MustParse(interaction.GuildID))
+	if player.Track() == nil {
+		return
+	}
+	b.Session.ChannelMessageDelete(interaction.ChannelID, b.State[interaction.GuildID].Player.ID)
+	b.State[interaction.GuildID].Player = nil
+	b.State[interaction.GuildID].Queue.Clear()
+	player.Update(context.TODO(), lavalink.WithNullTrack())
+	b.Session.InteractionRespond(interaction.Interaction, &discordgo.InteractionResponse{
+		Type: discordgo.InteractionResponseChannelMessageWithSource,
+		Data: &discordgo.InteractionResponseData{
+			Content: "Stopped",
+			Flags:   discordgo.MessageFlagsEphemeral,
+		},
+	})
+}
+
+func (b *Bot) bQueue(interaction *discordgo.InteractionCreate) {
+	Info("Queue called by user: %v", interaction.Member.User.Username)
+	embed := b.embedQueue(interaction)
+	b.Session.InteractionRespond(interaction.Interaction, &discordgo.InteractionResponse{
+		Type: discordgo.InteractionResponseChannelMessageWithSource,
+		Data: &discordgo.InteractionResponseData{
+			Embeds: []*discordgo.MessageEmbed{embed},
+			Flags:  discordgo.MessageFlagsEphemeral,
+		},
+	})
+}
+
+func (b *Bot) bResumePause(interaction *discordgo.InteractionCreate) {
 	Info("Resume/Pause called by user: %v", interaction.Member.User.Username)
 	player := b.Link.Player(snowflake.MustParse(interaction.GuildID))
 	if player.Track() == nil {
@@ -101,56 +208,80 @@ func (b *Bot) resumePause(interaction *discordgo.InteractionCreate) {
 	if player.Paused() {
 		player.Update(context.TODO(), lavalink.WithPaused(false))
 		b.Session.InteractionRespond(interaction.Interaction, &discordgo.InteractionResponse{
-			Type: discordgo.InteractionResponseChannelMessageWithSource,
-			Data: &discordgo.InteractionResponseData{
-				Content: "Resumed",
-				Flags:   discordgo.MessageFlagsEphemeral,
-			},
+			Type: discordgo.InteractionResponseDeferredMessageUpdate,
 		})
 		return
 	} else {
 		player.Update(context.TODO(), lavalink.WithPaused(true))
 		b.Session.InteractionRespond(interaction.Interaction, &discordgo.InteractionResponse{
-			Type: discordgo.InteractionResponseChannelMessageWithSource,
-			Data: &discordgo.InteractionResponseData{
-				Content: "Paused",
-				Flags:   discordgo.MessageFlagsEphemeral,
-			},
+			Type: discordgo.InteractionResponseDeferredMessageUpdate,
 		})
 		return
 	}
 
 }
 
-func (b *Bot) forward(interaction *discordgo.InteractionCreate) {
+func (b *Bot) bForward(interaction *discordgo.InteractionCreate) {
 	Info("Forward called by user: %v", interaction.Member.User.Username)
-	queue := b.Queue[interaction.GuildID]
+	queue := b.State[interaction.GuildID].Queue
 	if queue == nil {
 		return
 	}
 	player := b.Link.Player(snowflake.MustParse(interaction.GuildID))
 	if player.Track() == nil {
+		b.Session.InteractionRespond(interaction.Interaction, &discordgo.InteractionResponse{
+			Type: discordgo.InteractionResponseChannelMessageWithSource,
+			Data: &discordgo.InteractionResponseData{
+				Content: "No track playing to skip!",
+				Flags:   discordgo.MessageFlagsEphemeral,
+			},
+		})
 		return
 	}
-	next, _ := queue.Next()
+	next, err := queue.Next()
+	if err != nil {
+		b.Session.InteractionRespond(interaction.Interaction, &discordgo.InteractionResponse{
+			Type: discordgo.InteractionResponseChannelMessageWithSource,
+			Data: &discordgo.InteractionResponseData{
+				Content: "End of queue!",
+				Flags:   discordgo.MessageFlagsEphemeral,
+			},
+		})
+		return
+	}
+
 	player.Update(context.TODO(), lavalink.WithTrack(next))
 	b.Session.InteractionRespond(interaction.Interaction, &discordgo.InteractionResponse{
 		Type: discordgo.InteractionResponseDeferredMessageUpdate,
 	})
 }
 
-func (b *Bot) backward(interaction *discordgo.InteractionCreate) {
+func (b *Bot) bBackward(interaction *discordgo.InteractionCreate) {
 	Info("Backward called by user: %v", interaction.Member.User.Username)
-	queue := b.Queue[interaction.GuildID]
+	queue := b.State[interaction.GuildID].Queue
 	if queue == nil {
 		return
 	}
 	player := b.Link.Player(snowflake.MustParse(interaction.GuildID))
 	if player.Track() == nil {
+		b.Session.InteractionRespond(interaction.Interaction, &discordgo.InteractionResponse{
+			Type: discordgo.InteractionResponseChannelMessageWithSource,
+			Data: &discordgo.InteractionResponseData{
+				Content: "No track playing to skip!",
+				Flags:   discordgo.MessageFlagsEphemeral,
+			},
+		})
 		return
 	}
-	previous, _ := queue.Prev()
-	player.Update(context.TODO(), lavalink.WithTrack(previous))
+	if player.State().Position.Milliseconds() < 5000 {
+		prev, _ := queue.Prev()
+		player.Update(context.TODO(), lavalink.WithTrack(prev))
+		b.Session.InteractionRespond(interaction.Interaction, &discordgo.InteractionResponse{
+			Type: discordgo.InteractionResponseDeferredMessageUpdate,
+		})
+		return
+	}
+	player.Update(context.TODO(), lavalink.WithPosition(0))
 	b.Session.InteractionRespond(interaction.Interaction, &discordgo.InteractionResponse{
 		Type: discordgo.InteractionResponseDeferredMessageUpdate,
 	})
@@ -169,11 +300,12 @@ func (b *Bot) play(interaction *discordgo.InteractionCreate) {
 		})
 		return
 	}
-	if b.Queue[interaction.GuildID] == nil {
-		b.Queue[interaction.GuildID] = NewQueue[lavalink.Track]()
+	if b.State[interaction.GuildID] == nil {
+		b.State[interaction.GuildID] = &State{}
+		b.State[interaction.GuildID].Queue = NewQueue[lavalink.Track]()
 	}
 
-	queue := b.Queue[interaction.GuildID]
+	queue := b.State[interaction.GuildID].Queue
 	trackname, err := verifyUri(interaction.ApplicationCommandData().Options[0].StringValue())
 	if err != nil {
 		b.Session.InteractionRespond(interaction.Interaction, &discordgo.InteractionResponse{
@@ -247,11 +379,10 @@ func (b *Bot) play(interaction *discordgo.InteractionCreate) {
 			Components: buttons,
 		},
 	})
-	b.Player[interaction.GuildID], err = b.Session.InteractionResponse(interaction.Interaction)
+	b.State[interaction.GuildID].Player, err = b.Session.InteractionResponse(interaction.Interaction)
 	if err != nil {
 		Error("%v", err)
 	}
-
 }
 
 func (b *Bot) onVoiceStateUpdate(session *discordgo.Session, event *discordgo.VoiceStateUpdate) {
@@ -265,7 +396,7 @@ func (b *Bot) onVoiceStateUpdate(session *discordgo.Session, event *discordgo.Vo
 	}
 	b.Link.OnVoiceStateUpdate(context.TODO(), snowflake.MustParse(event.GuildID), channelID, event.SessionID)
 	if event.ChannelID == "" {
-		b.Queue[event.GuildID].Clear()
+		b.State[event.GuildID].Queue.Clear()
 	}
 }
 
@@ -277,9 +408,13 @@ func (b *Bot) initHandlers() map[string]func(interaction *discordgo.InteractionC
 	handlers := map[string]func(interaction *discordgo.InteractionCreate){
 		"ping":          b.ping,
 		"play":          b.play,
-		"b_forward":     b.forward,
-		"b_backward":    b.backward,
-		"b_resumePause": b.resumePause,
+		"queue":         b.queue,
+		"b_forward":     b.bForward,
+		"b_backward":    b.bBackward,
+		"b_resumePause": b.bResumePause,
+		"b_queue":       b.bQueue,
+		"b_stop":        b.bStop,
+		"b_shuffle":     b.bShuffle,
 	}
 
 	b.Handlers = handlers

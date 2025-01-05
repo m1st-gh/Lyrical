@@ -22,7 +22,7 @@ var commands = []*discordgo.ApplicationCommand{
 		},
 	},
 	{
-		Name:        "skip",
-		Description: "Skips the current track",
+		Name: 	  "queue",
+		Description: "Shows the current queue",
 	},
 }

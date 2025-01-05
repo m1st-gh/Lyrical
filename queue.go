@@ -2,6 +2,8 @@ package main
 
 import (
 	"fmt"
+	"math/rand"
+	"reflect"
 )
 
 type Queue[T any] struct {
@@ -63,11 +65,28 @@ func (q *Queue[T]) Dequeue(index int) (T, error) {
 	}
 	return item, nil
 }
+
+func (q *Queue[T]) Shuffle() error {
+	current := q.contents[q.index]
+	rand.Shuffle(q.size, func(i, j int) {
+		q.contents[i], q.contents[j] = q.contents[j], q.contents[i]
+	})
+	for i, item := range q.contents {
+		if reflect.DeepEqual(item, current) {
+			q.Dequeue(i)
+			q.contents = append([]T{current}, q.contents...)
+			q.size++
+			q.index = 0
+		}
+	}
+	return nil
+}
+
 func (q *Queue[T]) Items() []T {
 	return q.contents
 }
 
-func (q *Queue[T]) Empty() bool {
+func (q *Queue[T]) IsEmpty() bool {
 	return q.size == 0
 }
 

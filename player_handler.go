@@ -28,11 +28,11 @@ func (b *Bot) onPlayerResume(player disgolink.Player, event lavalink.PlayerResum
 
 func (b *Bot) onTrackStart(player disgolink.Player, event lavalink.TrackStartEvent) {
 	Info("Now playing: %v", event.Track.Info.Title)
-	if b.Player[event.GuildID().String()] != nil {
+	if b.State[event.GuildID().String()].Player != nil {
 		embed, buttons := b.embedNowPlaying(event.GuildID().String())
 		b.Session.ChannelMessageEditComplex(&discordgo.MessageEdit{
-			Channel:    b.Player[event.GuildID().String()].ChannelID,
-			ID:         b.Player[event.GuildID().String()].ID,
+			Channel:    b.State[event.GuildID().String()].Player.ChannelID,
+			ID:         b.State[event.GuildID().String()].Player.ID,
 			Embeds:     &[]*discordgo.MessageEmbed{embed},
 			Components: &buttons,
 		})
@@ -49,7 +49,7 @@ func (b *Bot) onTrackEnd(player disgolink.Player, event lavalink.TrackEndEvent) 
 	var err error
 	var nextTrack lavalink.Track
 
-	queue := b.Queue[event.GuildID().String()]
+	queue := b.State[event.GuildID().String()].Queue
 	nextTrack, err = queue.Next()
 
 	if err != nil {

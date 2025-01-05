@@ -11,16 +11,15 @@ import (
 	"github.com/joho/godotenv"
 )
 
-// Config holds the application configuration
 type Config struct {
 	DISCORD_API_KEY string
 	GUILD           string
 	LINK_NAME       string
 	LINK_ADDRESS    string
 	LINK_PASSWORD   string
+	STATUS          string
 }
 
-// Bot represents the Discord bot and its components
 type Bot struct {
 	Config   Config
 	Session  *discordgo.Session
@@ -28,11 +27,15 @@ type Bot struct {
 	Node     disgolink.Node
 	Commands []*discordgo.ApplicationCommand
 	Handlers map[string]func(interaction *discordgo.InteractionCreate)
-	Queue    map[string]*Queue[lavalink.Track]
-	Player   map[string]*discordgo.Message
+	State    map[string]*State
 }
 
-// NewBot creates and initializes a new Bot instance
+type State struct {
+	Queue    *Queue[lavalink.Track]
+	Player   *discordgo.Message
+	IsRepeat bool
+}
+
 func NewBot() *Bot {
 	bot := &Bot{}
 	bot.initConfig()
@@ -42,7 +45,6 @@ func NewBot() *Bot {
 	return bot
 }
 
-// initConfig loads environment variables into Config
 func (b *Bot) initConfig() {
 	if err := godotenv.Load(); err != nil {
 		Fatal("Error loading env: %v", err)
@@ -54,10 +56,10 @@ func (b *Bot) initConfig() {
 		LINK_NAME:       os.Getenv("LINK_NAME"),
 		LINK_ADDRESS:    os.Getenv("LINK_ADDRESS"),
 		LINK_PASSWORD:   os.Getenv("LINK_PASSWORD"),
+		STATUS:          os.Getenv("STATUS"),
 	}
 }
 
-// initBot initializes the Discord session
 func (b *Bot) initBot() {
 	session, err := discordgo.New("Bot " + b.Config.DISCORD_API_KEY)
 	if err != nil {
@@ -71,12 +73,10 @@ func (b *Bot) initBot() {
 	if err := session.Open(); err != nil {
 		Fatal("Session failed to open")
 	}
-	b.Player = make(map[string]*discordgo.Message)
-	b.Queue = make(map[string]*Queue[lavalink.Track])
+	b.State = make(map[string]*State)
 	b.Session = session
 }
 
-// initLink initializes the Lavalink connection
 func (b *Bot) initLink() {
 	link := disgolink.New(snowflake.MustParse(b.Session.State.User.ID),
 		disgolink.WithListenerFunc(b.onPlayerPause),
@@ -100,7 +100,6 @@ func (b *Bot) initLink() {
 	b.Link = link
 }
 
-// loadCommands registers Discord slash commands
 func (b *Bot) loadCommands(commands []*discordgo.ApplicationCommand) {
 	registeredCommands := make([]*discordgo.ApplicationCommand, len(commands))
 	for i, command := range commands {
