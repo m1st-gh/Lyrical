@@ -8,14 +8,14 @@ import (
 
 type Queue[T any] struct {
 	contents []T
-	index    int
+	current  int
 	size     int
 }
 
 func NewQueue[T any]() *Queue[T] {
 	return &Queue[T]{
 		contents: make([]T, 0, 64),
-		index:    0,
+		current:  0,
 		size:     0,
 	}
 }
@@ -35,48 +35,60 @@ func (q *Queue[T]) Enqueue(items ...T) {
 
 func (q *Queue[T]) Next() (T, error) {
 	var zero T
-	if q.index+1 >= q.size {
+	if q.current+1 >= q.size {
 		return zero, fmt.Errorf("end of queue")
 	}
-	q.index++
-	return q.contents[q.index], nil
+	q.current++
+	return q.contents[q.current], nil
 }
 
 func (q *Queue[T]) Prev() (T, error) {
 	var zero T
-	if q.index <= 0 {
+	if q.current <= 0 {
 		return zero, fmt.Errorf("start of queue")
 	}
-	q.index--
-	return q.contents[q.index], nil
+	q.current--
+	return q.contents[q.current], nil
 }
-
-func (q *Queue[T]) Dequeue(index int) (T, error) {
+func (q *Queue[T]) Dequeue() (T, error) {
 	var zero T
-	if index >= q.size {
-		return zero, fmt.Errorf("index out of range: %d (size: %d)", index, q.size)
+	if q.size == 0 {
+		return zero, fmt.Errorf("queue is empty")
 	}
-	item := q.contents[index]
-	copy(q.contents[index:], q.contents[index+1:])
+	item := q.contents[0]
+	copy(q.contents[0:], q.contents[1:])
 	q.contents = q.contents[:q.size-1]
 	q.size--
-	if q.index > 0 {
-		q.index--
+
+	return item, nil
+}
+
+func (q *Queue[T]) Pop(i int) (T, error) {
+	var zero T
+	if i >= q.size {
+		return zero, fmt.Errorf("index out of range: %d (size: %d)", q.current, q.size)
+	}
+	item := q.contents[i]
+	copy(q.contents[i:], q.contents[i+1:])
+	q.contents = q.contents[:q.size-1]
+	q.size--
+	if i <= q.current && q.current > 0 {
+		q.current--
 	}
 	return item, nil
 }
 
 func (q *Queue[T]) Shuffle() error {
-	current := q.contents[q.index]
+	current := q.contents[q.current]
 	rand.Shuffle(q.size, func(i, j int) {
 		q.contents[i], q.contents[j] = q.contents[j], q.contents[i]
 	})
 	for i, item := range q.contents {
 		if reflect.DeepEqual(item, current) {
-			q.Dequeue(i)
+			q.Pop(i)
 			q.contents = append([]T{current}, q.contents...)
 			q.size++
-			q.index = 0
+			q.current = 0
 		}
 	}
 	return nil
@@ -94,12 +106,12 @@ func (q *Queue[T]) Size() int {
 	return q.size
 }
 
-func (q *Queue[T]) Index() int {
-	return q.index
+func (q *Queue[T]) Current() int {
+	return q.current
 }
 
 func (q *Queue[T]) Clear() {
 	q.contents = make([]T, 0, 32)
-	q.index = 0
+	q.current = 0
 	q.size = 0
 }

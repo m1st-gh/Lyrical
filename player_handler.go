@@ -53,7 +53,9 @@ func (b *Bot) onTrackEnd(player disgolink.Player, event lavalink.TrackEndEvent) 
 	nextTrack, err = queue.Next()
 
 	if err != nil {
-		Info("Queue next failed: %v", err)
+		if b.State[event.GuildID().String()].Player != nil {
+			Info("Queue next failed: %v", err)
+		}
 		return
 	}
 	err = player.Update(context.TODO(), lavalink.WithTrack(nextTrack))

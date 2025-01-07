@@ -58,7 +58,7 @@ func (b *Bot) embedQueue(interaction *discordgo.InteractionCreate) *discordgo.Me
 		if len(title) > 40 {
 			title = title[:40] + "..."
 		}
-		if i == queue.Index() {
+		if i == queue.Current() {
 			discription += fmt.Sprintf("**%v:** [%v](%v) (Currently Playing)\n", i+1, title, *track.Info.URI)
 		} else {
 			discription += fmt.Sprintf("**%v:** [%v](%v)\n", i+1, title, *track.Info.URI)
@@ -171,9 +171,6 @@ func (b *Bot) bShuffle(interaction *discordgo.InteractionCreate) {
 func (b *Bot) bStop(interaction *discordgo.InteractionCreate) {
 	Info("Stop called by user: %v", interaction.Member.User.Username)
 	player := b.Link.Player(snowflake.MustParse(interaction.GuildID))
-	if player.Track() == nil {
-		return
-	}
 	b.Session.ChannelMessageDelete(interaction.ChannelID, b.State[interaction.GuildID].Player.ID)
 	b.State[interaction.GuildID].Player = nil
 	b.State[interaction.GuildID].Queue.Clear()
@@ -326,16 +323,28 @@ func (b *Bot) play(interaction *discordgo.InteractionCreate) {
 		func(track lavalink.Track) {
 			if player.Track() == nil {
 				trackToPlay = &track
-				queue.Enqueue(track)
+				if queue.size >= 1 {
+					queue.Enqueue(track)
+					queue.Next()
+					message = fmt.Sprintf("Added to queue: [%v](%v)", track.Info.Title, *track.Info.URI)
+				} else {
+					queue.Enqueue(track)
+				}
 			} else {
 				queue.Enqueue(track)
-				message = fmt.Sprintf("Added to queue: [%v](%v)", track.Info.Title, track.Info.URI)
+				message = fmt.Sprintf("Added to queue: [%v](%v)", track.Info.Title, *track.Info.URI)
 			}
 		},
 		func(playlist lavalink.Playlist) {
 			if player.Track() == nil {
 				trackToPlay = &playlist.Tracks[0]
-				queue.Enqueue(playlist.Tracks...)
+				if queue.size >= 1 {
+					queue.Enqueue(playlist.Tracks[0])
+					queue.Next()
+					message = fmt.Sprintf("Added to queue: [%v](%v)", playlist.Tracks[0].Info.Title, *playlist.Tracks[0].Info.URI)
+				} else {
+					queue.Enqueue(playlist.Tracks[0])
+				}
 			} else {
 				queue.Enqueue(playlist.Tracks...)
 				message = fmt.Sprintf("Added playlist to queue: %v tracks", len(playlist.Tracks))
@@ -345,7 +354,13 @@ func (b *Bot) play(interaction *discordgo.InteractionCreate) {
 			// ToDo: implement search result handler if requested.
 			if player.Track() == nil {
 				trackToPlay = &tracks[0]
-				queue.Enqueue(tracks[0])
+				if queue.size >= 1 {
+					queue.Enqueue(tracks[0])
+					queue.Next()
+					message = fmt.Sprintf("Added to queue: [%v](%v)", tracks[0].Info.Title, *tracks[0].Info.URI)
+				} else {
+					queue.Enqueue(tracks[0])
+				}
 			} else {
 				queue.Enqueue(tracks[0])
 				message = fmt.Sprintf("Added to queue: [%v](%v)", tracks[0].Info.Title, *tracks[0].Info.URI)
@@ -371,15 +386,27 @@ func (b *Bot) play(interaction *discordgo.InteractionCreate) {
 
 	player.Update(context.TODO(), lavalink.WithTrack(*trackToPlay))
 	embed, buttons := b.embedNowPlaying(interaction.GuildID)
-
-	b.Session.InteractionRespond(interaction.Interaction, &discordgo.InteractionResponse{
-		Type: discordgo.InteractionResponseChannelMessageWithSource,
-		Data: &discordgo.InteractionResponseData{
-			Embeds:     []*discordgo.MessageEmbed{embed},
-			Components: buttons,
-		},
-	})
-	b.State[interaction.GuildID].Player, err = b.Session.InteractionResponse(interaction.Interaction)
+	if b.State[interaction.GuildID].Player != nil {
+		b.Session.InteractionRespond(interaction.Interaction, &discordgo.InteractionResponse{
+			Type: discordgo.InteractionResponseChannelMessageWithSource,
+			Data: &discordgo.InteractionResponseData{
+				Content: message,
+				Flags:   discordgo.MessageFlagsEphemeral,
+			},
+		})
+		b.Session.InteractionRespond(interaction.Interaction, &discordgo.InteractionResponse{
+			Type: discordgo.InteractionResponseDeferredMessageUpdate,
+		})
+	} else {
+		b.Session.InteractionRespond(interaction.Interaction, &discordgo.InteractionResponse{
+			Type: discordgo.InteractionResponseChannelMessageWithSource,
+			Data: &discordgo.InteractionResponseData{
+				Embeds:     []*discordgo.MessageEmbed{embed},
+				Components: buttons,
+			},
+		})
+		b.State[interaction.GuildID].Player, err = b.Session.InteractionResponse(interaction.Interaction)
+	}
 	if err != nil {
 		Error("%v", err)
 	}
