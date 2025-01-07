@@ -156,6 +156,29 @@ func (b *Bot) embedNowPlaying(guildID string) (*discordgo.MessageEmbed, []discor
 	}
 	return embed, buttons
 }
+
+func (b *Bot) bRepeat(interaction *discordgo.InteractionCreate) {
+	Info("Repeat called by user: %v", interaction.Member.User.Username)
+
+	// Toggle the repeat state
+	currentState := b.State[interaction.GuildID]
+	currentState.IsRepeat = !currentState.IsRepeat
+	b.State[interaction.GuildID] = currentState
+
+	// Respond with the new repeat state
+	repeatState := "off"
+	if currentState.IsRepeat {
+		repeatState = "on"
+	}
+
+	b.Session.InteractionRespond(interaction.Interaction, &discordgo.InteractionResponse{
+		Type: discordgo.InteractionResponseChannelMessageWithSource,
+		Data: &discordgo.InteractionResponseData{
+			Content: fmt.Sprintf("Repeat is now: %v", repeatState),
+		},
+	})
+}
+
 func (b *Bot) bShuffle(interaction *discordgo.InteractionCreate) {
 	Info("Shuffle called by user: %v", interaction.Member.User.Username)
 	queue := b.State[interaction.GuildID].Queue
@@ -300,6 +323,7 @@ func (b *Bot) play(interaction *discordgo.InteractionCreate) {
 	if b.State[interaction.GuildID] == nil {
 		b.State[interaction.GuildID] = &State{}
 		b.State[interaction.GuildID].Queue = NewQueue[lavalink.Track]()
+		b.State[interaction.GuildID].IsRepeat = false
 	}
 
 	queue := b.State[interaction.GuildID].Queue
@@ -442,6 +466,7 @@ func (b *Bot) initHandlers() map[string]func(interaction *discordgo.InteractionC
 		"b_queue":       b.bQueue,
 		"b_stop":        b.bStop,
 		"b_shuffle":     b.bShuffle,
+		"b_repeat":      b.bRepeat,
 	}
 
 	b.Handlers = handlers

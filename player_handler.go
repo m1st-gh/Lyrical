@@ -50,7 +50,15 @@ func (b *Bot) onTrackEnd(player disgolink.Player, event lavalink.TrackEndEvent) 
 	var nextTrack lavalink.Track
 
 	queue := b.State[event.GuildID().String()].Queue
-	nextTrack, err = queue.Next()
+	if b.State[event.GuildID().String()].IsRepeat {
+		nextTrack, err = queue.Peek(queue.current)
+		if err != nil {
+			Error("Queue peek failed: %v", err)
+			return
+		}
+	} else {
+		nextTrack, err = queue.Next()
+	}
 
 	if err != nil {
 		if b.State[event.GuildID().String()].Player != nil {
