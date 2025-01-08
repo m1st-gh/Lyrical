@@ -159,17 +159,8 @@ func (b *Bot) embedNowPlaying(guildID string) (*discordgo.MessageEmbed, []discor
 
 func (b *Bot) bRepeat(interaction *discordgo.InteractionCreate) {
 	Info("Repeat called by user: %v", interaction.Member.User.Username)
-
-	// Toggle the repeat state
-	currentState := b.State[interaction.GuildID]
-	currentState.IsRepeat = !currentState.IsRepeat
-	b.State[interaction.GuildID] = currentState
-
-	// Respond with the new repeat state
-	repeatState := "off"
-	if currentState.IsRepeat {
-		repeatState = "on"
-	}
+	b.State[interaction.GuildID].IsRepeat = !b.State[interaction.GuildID].IsRepeat
+	repeatState := map[bool]string{true: "on", false: "off"}[b.State[interaction.GuildID].IsRepeat]
 
 	b.Session.InteractionRespond(interaction.Interaction, &discordgo.InteractionResponse{
 		Type: discordgo.InteractionResponseChannelMessageWithSource,
