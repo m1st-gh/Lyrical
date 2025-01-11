@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"regexp"
+	"strconv"
 	"time"
 
 	"github.com/bwmarrin/discordgo"
@@ -199,6 +200,15 @@ func (b *Bot) bStop(interaction *discordgo.InteractionCreate) {
 	})
 }
 
+func (b *Bot) endOfQueue(guildID string) {
+	player := b.Link.Player(snowflake.MustParse(guildID))
+	b.Session.ChannelMessageDelete(guildID, b.State[guildID].Player.ID)
+	b.State[guildID].Player = nil
+	b.State[guildID].Queue.Clear()
+	player.Update(context.TODO(), lavalink.WithNullTrack())
+	b.Session.ChannelVoiceJoinManual(guildID, "", false, true)
+}
+
 func (b *Bot) bQueue(interaction *discordgo.InteractionCreate) {
 	Info("Queue called by user: %v", interaction.Member.User.Username)
 	embed := b.embedQueue(interaction)
@@ -296,6 +306,80 @@ func (b *Bot) bBackward(interaction *discordgo.InteractionCreate) {
 	player.Update(context.TODO(), lavalink.WithPosition(0))
 	b.Session.InteractionRespond(interaction.Interaction, &discordgo.InteractionResponse{
 		Type: discordgo.InteractionResponseDeferredMessageUpdate,
+	})
+}
+
+func (b *Bot) dequeue(interaction *discordgo.InteractionCreate) {
+	Info("Pop called by user: %v", interaction.Member.User.Username)
+	queue := b.State[interaction.GuildID].Queue
+	if queue == nil {
+		return
+	}
+	if queue.IsEmpty() {
+		b.Session.InteractionRespond(interaction.Interaction, &discordgo.InteractionResponse{
+			Type: discordgo.InteractionResponseChannelMessageWithSource,
+			Data: &discordgo.InteractionResponseData{
+				Content: "Queue is empty",
+				Flags:   discordgo.MessageFlagsEphemeral,
+			},
+		})
+		return
+	}
+	if len(interaction.ApplicationCommandData().Options) == 0 {
+		popped, err := queue.Pop(queue.size - 1)
+		if err != nil {
+			b.Session.InteractionRespond(interaction.Interaction, &discordgo.InteractionResponse{
+				Type: discordgo.InteractionResponseChannelMessageWithSource,
+				Data: &discordgo.InteractionResponseData{
+					Content: "Failed to remove track from queue",
+					Flags:   discordgo.MessageFlagsEphemeral,
+				},
+			})
+			Error("Queue dequeue failed: %v", err)
+			return
+		}
+		b.Session.InteractionRespond(interaction.Interaction, &discordgo.InteractionResponse{
+			Type: discordgo.InteractionResponseChannelMessageWithSource,
+			Data: &discordgo.InteractionResponseData{
+				Content: fmt.Sprintf("Removed: %v", popped.Info.Title),
+				Flags:   discordgo.MessageFlagsEphemeral,
+			},
+		})
+		return
+	}
+
+	index, err := strconv.Atoi(interaction.ApplicationCommandData().Options[0].StringValue())
+	if err != nil {
+		b.Session.InteractionRespond(interaction.Interaction, &discordgo.InteractionResponse{
+			Type: discordgo.InteractionResponseChannelMessageWithSource,
+			Data: &discordgo.InteractionResponseData{
+				Content: "Please provide a valid number",
+				Flags:   discordgo.MessageFlagsEphemeral,
+			},
+		})
+		Error("Invalid index: %v", err)
+		return
+	}
+
+	popped, err := queue.Pop(index - 1)
+	if err != nil {
+		b.Session.InteractionRespond(interaction.Interaction, &discordgo.InteractionResponse{
+			Type: discordgo.InteractionResponseChannelMessageWithSource,
+			Data: &discordgo.InteractionResponseData{
+				Content: "Failed to remove track from queue",
+				Flags:   discordgo.MessageFlagsEphemeral,
+			},
+		})
+		Error("Queue pop failed: %v", err)
+		return
+	}
+
+	b.Session.InteractionRespond(interaction.Interaction, &discordgo.InteractionResponse{
+		Type: discordgo.InteractionResponseChannelMessageWithSource,
+		Data: &discordgo.InteractionResponseData{
+			Content: fmt.Sprintf("Removed: %v", popped.Info.Title),
+			Flags:   discordgo.MessageFlagsEphemeral,
+		},
 	})
 }
 
@@ -452,6 +536,7 @@ func (b *Bot) initHandlers() map[string]func(interaction *discordgo.InteractionC
 		"ping":          b.ping,
 		"play":          b.play,
 		"queue":         b.queue,
+		"dequeue":       b.dequeue,
 		"b_forward":     b.bForward,
 		"b_backward":    b.bBackward,
 		"b_resumePause": b.bResumePause,

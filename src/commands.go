@@ -22,7 +22,15 @@ var commands = []*discordgo.ApplicationCommand{
 		},
 	},
 	{
-		Name: 	  "queue",
-		Description: "Shows the current queue",
+		Name:        "dequeue",
+		Description: "Removes a track from the queue",
+		Options: []*discordgo.ApplicationCommandOption{
+			{
+				Type:        discordgo.ApplicationCommandOptionInteger,
+				Name:        "index",
+				Description: "The index of the track to remove, if not provided the last track is removed",
+				Required:    false,
+			},
+		},
 	},
 }
