@@ -17,7 +17,7 @@ func main() {
 	bot.Session.AddHandler(bot.onVoiceStateUpdate)
 
 	defer bot.Session.Close()
-
+	
 	shutdownSignal := make(chan os.Signal, 1)
 	signal.Notify(shutdownSignal, os.Interrupt)
 	Info("Lyrical up in: %vms", time.Since(start).Milliseconds())
@@ -29,8 +29,7 @@ func main() {
 			minutes := int(uptime.Minutes()) % 60
 			formattedUptime := fmt.Sprintf("%02d:%02d", hours, minutes)
 			bot.Session.UpdateCustomStatus(fmt.Sprintf("Uptime: %v, %v", formattedUptime, SessionMessage))
-			time.Sleep(1 * time.Minute / 4)
-
+			time.Sleep(1 * time.Minute)
 		}
 	}()
 	<-shutdownSignal

@@ -189,6 +189,7 @@ func (b *Bot) bStop(interaction *discordgo.InteractionCreate) {
 	b.State[interaction.GuildID].Player = nil
 	b.State[interaction.GuildID].Queue.Clear()
 	player.Update(context.TODO(), lavalink.WithNullTrack())
+	b.Session.ChannelVoiceJoinManual(interaction.GuildID, "", false, true)
 	b.Session.InteractionRespond(interaction.Interaction, &discordgo.InteractionResponse{
 		Type: discordgo.InteractionResponseChannelMessageWithSource,
 		Data: &discordgo.InteractionResponseData{
