@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"time"
 
 	"github.com/bwmarrin/discordgo"
 	"github.com/disgoorg/disgolink/v3/disgolink"
@@ -63,6 +64,24 @@ func (b *Bot) onTrackEnd(player disgolink.Player, event lavalink.TrackEndEvent) 
 	if err != nil {
 		if b.State[event.GuildID().String()].Player != nil {
 			Info("Queue next failed: %v", err)
+			go func() {
+				const checkInterval = time.Second * 15
+				const maxNilDuration = 15 * time.Minute
+				nilDuration := time.Duration(0)
+				ticker := time.NewTicker(checkInterval)
+				defer ticker.Stop()
+				for range ticker.C {
+					if b.Link.Player(event.GuildID()).Track() == nil {
+						nilDuration += checkInterval
+						if nilDuration >= maxNilDuration {
+							b.endOfQueue(event.GuildID().String())
+							return
+						}
+					} else {
+						nilDuration = 0
+					}
+				}
+			}()
 		}
 		return
 	}
